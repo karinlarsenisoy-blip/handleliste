@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Basic defensive validation: the human-entered name/title must actually
+    // be a reasonably-sized string, so a buggy or malicious client can't write
+    // data that crashes the app for the legitimate owner reading it back.
+    function isValidName(name) {
+      return name is string && name.size() > 0 && name.size() <= 200;
+    }
+
+    match /users/{userId}/lists/{listId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidName(request.resource.data.name);
+
+      match /categories/{categoryId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidName(request.resource.data.name);
+
+        match /items/{itemId} {
+          allow read, delete: if isOwner(userId);
+          allow create, update: if isOwner(userId) && isValidName(request.resource.data.name);
+        }
+      }
+    }
+  }
+}
