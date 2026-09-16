@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "87233152428",
+    "project_id": "handleliste-f1659",
+    "storage_bucket": "handleliste-f1659.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:87233152428:android:069ede494b9b61daede609",
+        "android_client_info": {
+          "package_name": "com.example.handleliste_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPTvHdnz_hBbfDMnZ9JRiO9hnm2jnobMk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:87233152428:android:10fb41d5cf148702ede609",
+        "android_client_info": {
+          "package_name": "com.mycompany.handleliste"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPTvHdnz_hBbfDMnZ9JRiO9hnm2jnobMk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:87233152428:android:267dfc5548277115ede609",
+        "android_client_info": {
+          "package_name": "no.ktkappfabrikk.handleliste_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPTvHdnz_hBbfDMnZ9JRiO9hnm2jnobMk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
