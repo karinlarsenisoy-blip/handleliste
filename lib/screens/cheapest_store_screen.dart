@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../models/shopping_split.dart';
 import '../models/store_total.dart';
 import '../services/category_service.dart';
 import '../services/cheapest_store_service.dart';
 import '../services/item_service.dart';
 
-/// Shows which store is cheapest for everything on one shopping list — v1
-/// of the "Finn billigst" feature: ranks single stores by total price
-/// across whatever items we have a known price for there, using both our
-/// own crowdsourced prices and Kassalapp. See CheapestStoreService for why
-/// it doesn't yet try splitting the list across two stores.
+/// Shows two ways to buy everything on one shopping list as cheaply as
+/// possible: pick a single store to visit, or split the list across
+/// whichever stores are individually cheapest per item. See
+/// CheapestStoreService for the reasoning behind both.
 class CheapestStoreScreen extends StatefulWidget {
   CheapestStoreScreen({
     super.key,
@@ -34,78 +34,230 @@ class CheapestStoreScreen extends StatefulWidget {
   State<CheapestStoreScreen> createState() => _CheapestStoreScreenState();
 }
 
-class _Result {
-  _Result(this.itemCount, this.totals);
-  final int itemCount;
-  final List<StoreTotal> totals;
-}
-
 class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
-  late final Future<_Result> _future = _load();
+  late final Future<List<String>> _itemNamesFuture = _loadItemNames();
+  late final Future<List<StoreTotal>> _singleStoreFuture =
+      _itemNamesFuture.then((names) => widget.cheapestStoreService.findCheapestStores(names));
+  late final Future<ShoppingSplit> _splitFuture =
+      _itemNamesFuture.then((names) => widget.cheapestStoreService.findCheapestSplit(names));
 
-  Future<_Result> _load() async {
+  Future<List<String>> _loadItemNames() async {
     final categories = await widget.categoryService.watchCategories(widget.uid, widget.listId).first;
     final itemNames = <String>[];
     for (final category in categories) {
       final items = await widget.itemService.watchItems(widget.uid, widget.listId, category.id).first;
       itemNames.addAll(items.map((i) => i.name));
     }
-    final totals = await widget.cheapestStoreService.findCheapestStores(itemNames);
-    return _Result(itemNames.length, totals);
+    return itemNames;
+  }
+
+  void _showDetails(StoreTotal storeTotal, List<String> allItemNames) {
+    final matchedNames = storeTotal.matchedItems.map((i) => i.name).toSet();
+    final missingNames = allItemNames.where((name) => !matchedNames.contains(name)).toList();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        builder: (context, scrollController) => ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(storeTotal.storeName, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 4),
+            Text(
+              '${storeTotal.matchedItemCount} av ${storeTotal.totalItemCount} varer · '
+              '${storeTotal.total.toStringAsFixed(2)} kr totalt',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const Divider(height: 32),
+            if (storeTotal.matchedItems.isNotEmpty) ...[
+              Text('Funnet', style: Theme.of(context).textTheme.titleMedium),
+              for (final item in storeTotal.matchedItems)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.check_circle_outline, color: Colors.green),
+                  title: Text(item.name),
+                  trailing: Text('${item.price.toStringAsFixed(2)} kr'),
+                ),
+            ],
+            if (missingNames.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text('Mangler her', style: Theme.of(context).textTheme.titleMedium),
+              for (final name in missingNames)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.cancel_outlined, color: Colors.grey),
+                  title: Text(name),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSingleStoreTab() {
+    return FutureBuilder<List<String>>(
+      future: _itemNamesFuture,
+      builder: (context, itemNamesSnapshot) {
+        if (!itemNamesSnapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final itemNames = itemNamesSnapshot.data!;
+        if (itemNames.isEmpty) {
+          return const Center(child: Text('Listen er tom — legg til varer først.'));
+        }
+
+        return FutureBuilder<List<StoreTotal>>(
+          future: _singleStoreFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('Noe gikk galt: ${snapshot.error}'));
+            }
+
+            final totals = snapshot.data!;
+            if (totals.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: Text(
+                    'Fant ingen kjente priser for varene på denne listen ennå. '
+                    'Legg inn flere kvitteringer, eller prøv varenavn som matcher kjente produkter.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: totals.length,
+              itemBuilder: (context, index) {
+                final storeTotal = totals[index];
+                final isCheapest = index == 0;
+                return Card(
+                  color: isCheapest ? Theme.of(context).colorScheme.primaryContainer : null,
+                  child: ListTile(
+                    onTap: () => _showDetails(storeTotal, itemNames),
+                    leading: isCheapest ? const Icon(Icons.emoji_events_outlined) : null,
+                    title: Text(storeTotal.storeName, style: Theme.of(context).textTheme.titleMedium),
+                    subtitle: Text('${storeTotal.matchedItemCount} av ${storeTotal.totalItemCount} varer funnet'),
+                    trailing: Text(
+                      '${storeTotal.total.toStringAsFixed(2)} kr',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSplitTab() {
+    return FutureBuilder<ShoppingSplit>(
+      future: _splitFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Noe gikk galt: ${snapshot.error}'));
+        }
+
+        final split = snapshot.data!;
+        if (split.assignments.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: Text(
+                'Fant ingen kjente priser for varene på denne listen ennå.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+
+        final byStore = split.assignmentsByStore;
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            for (final entry in byStore.entries) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(entry.key, style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      for (final assignment in entry.value)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(child: Text(assignment.itemName)),
+                              Text('${assignment.price.toStringAsFixed(2)} kr'),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (split.unmatchedItems.isNotEmpty) ...[
+              const Divider(),
+              Text('Ingen kjent pris', style: Theme.of(context).textTheme.titleMedium),
+              for (final name in split.unmatchedItems)
+                ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(name)),
+            ],
+            const Divider(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Totalt · ${byStore.length} butikker', style: Theme.of(context).textTheme.titleMedium),
+                Text('${split.total.toStringAsFixed(2)} kr', style: Theme.of(context).textTheme.titleMedium),
+              ],
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Billigst for «${widget.listName}»')),
-      body: FutureBuilder<_Result>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Noe gikk galt: ${snapshot.error}'));
-          }
-
-          final result = snapshot.data!;
-          if (result.itemCount == 0) {
-            return const Center(child: Text('Listen er tom — legg til varer først.'));
-          }
-          if (result.totals.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(
-                child: Text(
-                  'Fant ingen kjente priser for varene på denne listen ennå. '
-                  'Legg inn flere kvitteringer, eller prøv varenavn som matcher kjente produkter.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: result.totals.length,
-            itemBuilder: (context, index) {
-              final storeTotal = result.totals[index];
-              final isCheapest = index == 0;
-              return Card(
-                color: isCheapest ? Theme.of(context).colorScheme.primaryContainer : null,
-                child: ListTile(
-                  leading: isCheapest ? const Icon(Icons.emoji_events_outlined) : null,
-                  title: Text(storeTotal.storeName, style: Theme.of(context).textTheme.titleMedium),
-                  subtitle: Text('${storeTotal.matchedItemCount} av ${storeTotal.totalItemCount} varer funnet'),
-                  trailing: Text(
-                    '${storeTotal.total.toStringAsFixed(2)} kr',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-              );
-            },
-          );
-        },
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Billigst for «${widget.listName}»'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Én butikk'),
+              Tab(text: 'Flere butikker'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _buildSingleStoreTab(),
+            _buildSplitTab(),
+          ],
+        ),
       ),
     );
   }

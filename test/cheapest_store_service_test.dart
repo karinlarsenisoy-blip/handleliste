@@ -49,4 +49,52 @@ void main() {
       expect(await service.findCheapestStores(['Noe helt ukjent']), isEmpty);
     });
   });
+
+  group('CheapestStoreService.findCheapestSplit', () {
+    test('assigns each item to whichever store is individually cheapest for it', () async {
+      final firestore = FakeFirebaseFirestore();
+      final priceService = PriceService(firestore: firestore);
+      final service = CheapestStoreService(priceService: priceService);
+
+      await priceService.contributeObservation(PriceObservation(
+        storeChainId: 'kiwi',
+        itemName: 'Bananer',
+        price: 24.90,
+        observedAt: DateTime(2026, 9, 1),
+      ));
+      await priceService.contributeObservation(PriceObservation(
+        storeChainId: 'rema1000',
+        itemName: 'Bananer',
+        price: 22.90,
+        observedAt: DateTime(2026, 9, 1),
+      ));
+      await priceService.contributeObservation(PriceObservation(
+        storeChainId: 'kiwi',
+        itemName: 'Melk',
+        price: 19.90,
+        observedAt: DateTime(2026, 9, 1),
+      ));
+
+      final split = await service.findCheapestSplit(['Bananer', 'Melk']);
+
+      expect(split.assignments, hasLength(2));
+      expect(split.total, 22.90 + 19.90);
+      expect(split.unmatchedItems, isEmpty);
+
+      final byStore = split.assignmentsByStore;
+      expect(byStore['Rema 1000']!.single.itemName, 'Bananer');
+      expect(byStore['Kiwi']!.single.itemName, 'Melk');
+    });
+
+    test('lists items with no known price as unmatched instead of guessing', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = CheapestStoreService(priceService: PriceService(firestore: firestore));
+
+      final split = await service.findCheapestSplit(['Noe helt ukjent']);
+
+      expect(split.assignments, isEmpty);
+      expect(split.unmatchedItems, ['Noe helt ukjent']);
+      expect(split.total, 0);
+    });
+  });
 }
