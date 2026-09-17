@@ -13,6 +13,10 @@ service cloud.firestore {
       return name is string && name.size() > 0 && name.size() <= 200;
     }
 
+    function isValidPrice(price) {
+      return price is number && price > 0 && price < 100000;
+    }
+
     match /users/{userId}/lists/{listId} {
       allow read, delete: if isOwner(userId);
       allow create, update: if isOwner(userId) && isValidName(request.resource.data.name);
@@ -26,6 +30,32 @@ service cloud.firestore {
           allow create, update: if isOwner(userId) && isValidName(request.resource.data.name);
         }
       }
+    }
+
+    match /users/{userId}/receipts/{receiptId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidName(request.resource.data.storeName);
+    }
+
+    // The shared price database: anonymous by design — these documents never
+    // carry a uid, so there is nothing here to restrict to an owner. Readable
+    // by anyone (signed in or not, since prices aren't personal data);
+    // writable only by a signed-in user, and only append-only (no update or
+    // delete) for the raw observations, so history can't be rewritten.
+    match /priceObservations/{observationId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && isValidName(request.resource.data.storeChainId)
+        && isValidName(request.resource.data.itemName)
+        && isValidPrice(request.resource.data.price);
+    }
+
+    match /currentPrices/{docId} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && isValidName(request.resource.data.storeChainId)
+        && isValidName(request.resource.data.itemName)
+        && isValidPrice(request.resource.data.price);
     }
   }
 }
