@@ -9,6 +9,7 @@ import '../services/ocr_service.dart';
 import '../services/price_service.dart';
 import '../services/receipt_parser.dart';
 import '../services/receipt_service.dart';
+import '../widgets/product_name_field.dart';
 
 /// Captures one receipt: pick a store and date, then get the raw text in
 /// either by pasting it (works everywhere — used for stores with no real
@@ -37,19 +38,22 @@ class AddReceiptScreen extends StatefulWidget {
 }
 
 class _EditableItem {
-  _EditableItem({required String name, required num price})
+  _EditableItem({required String name, required num price, num quantity = 1})
       : nameController = TextEditingController(text: name),
-        priceController = TextEditingController(text: _formatPrice(price));
+        priceController = TextEditingController(text: _formatNumber(price)),
+        quantityController = TextEditingController(text: _formatNumber(quantity));
 
   final TextEditingController nameController;
   final TextEditingController priceController;
+  final TextEditingController quantityController;
 
-  static String _formatPrice(num price) =>
-      price == price.roundToDouble() ? price.toInt().toString() : price.toString();
+  static String _formatNumber(num value) =>
+      value == value.roundToDouble() ? value.toInt().toString() : value.toString();
 
   void dispose() {
     nameController.dispose();
     priceController.dispose();
+    quantityController.dispose();
   }
 }
 
@@ -82,7 +86,7 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
       }
       _items
         ..clear()
-        ..addAll(parsed.map((i) => _EditableItem(name: i.name, price: i.price)));
+        ..addAll(parsed.map((i) => _EditableItem(name: i.name, price: i.price, quantity: i.quantity)));
     });
     if (parsed.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -139,8 +143,9 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
     for (final item in _items) {
       final name = item.nameController.text.trim();
       final price = num.tryParse(item.priceController.text.replaceAll(',', '.'));
-      if (name.isEmpty || price == null) continue;
-      items.add(ReceiptItem(name: name, price: price));
+      final quantity = num.tryParse(item.quantityController.text.replaceAll(',', '.')) ?? 1;
+      if (name.isEmpty || price == null || quantity <= 0) continue;
+      items.add(ReceiptItem(name: name, price: price, quantity: quantity));
     }
     if (items.isEmpty) {
       ScaffoldMessenger.of(context)
@@ -162,11 +167,15 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
 
     if (_shareAnonymously) {
       for (final item in items) {
+        // The price on a receipt line is the total for that line, not a
+        // per-unit price — dividing by quantity here is what keeps the
+        // shared price database meaningful (a "3 for 30 kr" line must not
+        // be recorded as a single item costing 30 kr).
         await widget.priceService.contributeObservation(
           PriceObservation(
             storeChainId: _store.id,
             itemName: item.name,
-            price: item.price,
+            price: item.price / item.quantity,
             observedAt: _purchasedAt,
           ),
         );
@@ -272,12 +281,22 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     flex: 3,
-                    child: TextField(
+                    child: ProductNameField(
                       controller: _items[i].nameController,
-                      decoration: const InputDecoration(hintText: 'Varenavn'),
+                      hintText: 'Varenavn',
+                      onSubmitted: (_, {imageUrl}) {},
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _items[i].quantityController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(hintText: 'Antall'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -285,7 +304,7 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
                     child: TextField(
                       controller: _items[i].priceController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(hintText: 'Pris'),
+                      decoration: const InputDecoration(hintText: 'Pris totalt'),
                     ),
                   ),
                   IconButton(icon: const Icon(Icons.close), onPressed: () => _removeRow(i)),
