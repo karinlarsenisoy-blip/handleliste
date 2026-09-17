@@ -32,10 +32,10 @@ class CategoryTile extends StatefulWidget {
 class _CategoryTileState extends State<CategoryTile> {
   final TextEditingController _newItemController = TextEditingController();
 
-  void _addItem() {
+  void _addItem({String? imageUrl}) {
     final name = _newItemController.text.trim();
     if (name.isEmpty) return;
-    widget.itemService.addItem(widget.uid, widget.listId, widget.category.id, name);
+    widget.itemService.addItem(widget.uid, widget.listId, widget.category.id, name, imageUrl: imageUrl);
     _newItemController.clear();
   }
 
@@ -178,7 +178,7 @@ class _CategoryTileState extends State<CategoryTile> {
                   child: ProductNameField(
                     controller: _newItemController,
                     hintText: 'Ny vare i denne kategorien...',
-                    onSubmitted: (_) => _addItem(),
+                    onSubmitted: (_, {imageUrl}) => _addItem(imageUrl: imageUrl),
                   ),
                 ),
                 IconButton(icon: const Icon(Icons.add), onPressed: _addItem),

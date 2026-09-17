@@ -85,9 +85,28 @@ class ItemTile extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       child: ListTile(
-        leading: Checkbox(
-          value: item.isChecked,
-          onChanged: (_) => itemService.toggleItem(uid, listId, categoryId, item),
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Checkbox(
+              value: item.isChecked,
+              onChanged: (_) => itemService.toggleItem(uid, listId, categoryId, item),
+            ),
+            if (item.imageUrl != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(
+                    item.imageUrl!,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const SizedBox(width: 32, height: 32),
+                  ),
+                ),
+              ),
+          ],
         ),
         title: Text(item.name, style: titleStyle),
         subtitle: item.note == null ? null : Text(item.note!, style: titleStyle),

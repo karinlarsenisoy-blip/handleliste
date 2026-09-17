@@ -9,6 +9,7 @@ class Item {
     this.unit,
     this.note,
     this.isChecked = false,
+    this.imageUrl,
   });
 
   final String id;
@@ -24,6 +25,11 @@ class Item {
   /// Whether the item has been put in the cart / bought.
   final bool isChecked;
 
+  /// Product photo, set when the item was added by picking a suggestion
+  /// (see ProductNameField) rather than typing free text. Null for
+  /// free-text items — there's nothing to show a photo of.
+  final String? imageUrl;
+
   factory Item.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     return Item(
@@ -33,6 +39,7 @@ class Item {
       unit: data['unit'] as String?,
       note: data['note'] as String?,
       isChecked: data['isChecked'] as bool? ?? false,
+      imageUrl: data['imageUrl'] as String?,
     );
   }
 
@@ -42,5 +49,6 @@ class Item {
         'unit': unit,
         'note': note,
         'isChecked': isChecked,
+        'imageUrl': imageUrl,
       };
 }

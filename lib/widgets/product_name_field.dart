@@ -9,6 +9,8 @@ import '../services/product_suggestion_service.dart';
 /// known products (with photos) as you type — e.g. typing "melk" lists the
 /// milk variants known to Open Food Facts. Picking one fills the field with
 /// its name; you can otherwise just keep typing free text and ignore it.
+typedef ProductNameSubmitted = void Function(String name, {String? imageUrl});
+
 class ProductNameField extends StatefulWidget {
   const ProductNameField({
     super.key,
@@ -20,7 +22,10 @@ class ProductNameField extends StatefulWidget {
 
   final TextEditingController controller;
   final String hintText;
-  final ValueChanged<String> onSubmitted;
+
+  /// Called with the entered/picked name, and — only when the user picked a
+  /// suggestion rather than typing free text — its photo.
+  final ProductNameSubmitted onSubmitted;
   final ProductSuggestionService? suggestionService;
 
   @override
@@ -53,7 +58,7 @@ class _ProductNameFieldState extends State<ProductNameField> {
   void _selectSuggestion(ProductSuggestion suggestion) {
     widget.controller.text = suggestion.name;
     setState(() => _suggestions = []);
-    widget.onSubmitted(suggestion.name);
+    widget.onSubmitted(suggestion.name, imageUrl: suggestion.imageUrl);
   }
 
   @override

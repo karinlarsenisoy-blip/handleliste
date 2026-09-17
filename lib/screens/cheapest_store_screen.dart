@@ -164,7 +164,8 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
   /// even carry. That best store's own total may well be higher than what
   /// its card shows in the split tab below: some of "its" items turn out
   /// cheaper elsewhere, so the split hands those to other stores instead.
-  ({num amount, num singleStoreTotal, String singleStoreName, int itemCount})? _computeSavings(
+  ({num amount, num singleStoreTotal, String singleStoreName, int overlapCount, int listItemCount})?
+      _computeSavings(
     ShoppingSplit split,
     List<StoreTotal> singleStoreTotals,
   ) {
@@ -188,7 +189,8 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
       amount: singleStoreCost - splitCostForSameItems,
       singleStoreTotal: singleStoreCost,
       singleStoreName: bestSingleStore.storeName,
-      itemCount: overlapCount,
+      overlapCount: overlapCount,
+      listItemCount: bestSingleStore.totalItemCount,
     );
   }
 
@@ -207,6 +209,11 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
 
     final byStore = split.assignmentsByStore;
     final savings = _computeSavings(split, singleStoreTotals);
+    final savingsItemsLabel = savings == null
+        ? ''
+        : savings.overlapCount == savings.listItemCount
+            ? 'alle dine ${savings.listItemCount} varer'
+            : 'de ${savings.overlapCount} av dine ${savings.listItemCount} varer som også finnes';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -227,9 +234,9 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Hvis du i stedet kjøpte disse samme ${savings.itemCount} varene kun hos '
-                    '${savings.singleStoreName} ville det kostet ${savings.singleStoreTotal.toStringAsFixed(2)} kr. '
-                    'Noen av dem er billigere andre steder — derfor er de satt til en annen butikk under.',
+                    'Hvis du i stedet kjøpte $savingsItemsLabel kun hos ${savings.singleStoreName}, ville det '
+                    'kostet ${savings.singleStoreTotal.toStringAsFixed(2)} kr der. Noen av dem er billigere '
+                    'andre steder — derfor er de satt til en annen butikk under.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],

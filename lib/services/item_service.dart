@@ -31,6 +31,7 @@ class ItemService {
     String name, {
     num quantity = 1,
     String? unit,
+    String? imageUrl,
   }) {
     return _itemsRef(uid, listId, categoryId).add({
       'name': name,
@@ -38,6 +39,7 @@ class ItemService {
       'unit': unit,
       'note': null,
       'isChecked': false,
+      'imageUrl': imageUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
