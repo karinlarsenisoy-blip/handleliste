@@ -1,11 +1,19 @@
 /// One list item, assigned to whichever store has the lowest known price
 /// for it.
 class ItemAssignment {
-  ItemAssignment({required this.itemName, required this.storeName, required this.price});
+  ItemAssignment({
+    required this.itemName,
+    required this.storeName,
+    required this.price,
+    required this.lastObservedAt,
+  });
 
   final String itemName;
   final String storeName;
   final num price;
+
+  /// When this price was last confirmed — see [MatchedItem.lastObservedAt].
+  final DateTime lastObservedAt;
 }
 
 /// The cheapest possible way to buy a whole shopping list, split across as

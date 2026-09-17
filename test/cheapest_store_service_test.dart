@@ -15,19 +15,19 @@ void main() {
         storeChainId: 'kiwi',
         itemName: 'Bananer',
         price: 24.90,
-        observedAt: DateTime(2026, 9, 1),
+        observedAt: DateTime.now().subtract(const Duration(days: 5)),
       ));
       await priceService.contributeObservation(PriceObservation(
         storeChainId: 'rema1000',
         itemName: 'Bananer',
         price: 22.90,
-        observedAt: DateTime(2026, 9, 1),
+        observedAt: DateTime.now().subtract(const Duration(days: 5)),
       ));
       await priceService.contributeObservation(PriceObservation(
         storeChainId: 'kiwi',
         itemName: 'Melk',
         price: 24.90,
-        observedAt: DateTime(2026, 9, 1),
+        observedAt: DateTime.now().subtract(const Duration(days: 5)),
       ));
       // Rema has no known price for Melk — only Bananer.
 
@@ -48,6 +48,21 @@ void main() {
 
       expect(await service.findCheapestStores(['Noe helt ukjent']), isEmpty);
     });
+
+    test('ignores a price that is older than 30 days, even if it is the only one known', () async {
+      final firestore = FakeFirebaseFirestore();
+      final priceService = PriceService(firestore: firestore);
+      final service = CheapestStoreService(priceService: priceService);
+
+      await priceService.contributeObservation(PriceObservation(
+        storeChainId: 'kiwi',
+        itemName: 'Bananer',
+        price: 24.90,
+        observedAt: DateTime.now().subtract(const Duration(days: 45)),
+      ));
+
+      expect(await service.findCheapestStores(['Bananer']), isEmpty);
+    });
   });
 
   group('CheapestStoreService.findCheapestSplit', () {
@@ -60,19 +75,19 @@ void main() {
         storeChainId: 'kiwi',
         itemName: 'Bananer',
         price: 24.90,
-        observedAt: DateTime(2026, 9, 1),
+        observedAt: DateTime.now().subtract(const Duration(days: 5)),
       ));
       await priceService.contributeObservation(PriceObservation(
         storeChainId: 'rema1000',
         itemName: 'Bananer',
         price: 22.90,
-        observedAt: DateTime(2026, 9, 1),
+        observedAt: DateTime.now().subtract(const Duration(days: 5)),
       ));
       await priceService.contributeObservation(PriceObservation(
         storeChainId: 'kiwi',
         itemName: 'Melk',
         price: 19.90,
-        observedAt: DateTime(2026, 9, 1),
+        observedAt: DateTime.now().subtract(const Duration(days: 5)),
       ));
 
       final split = await service.findCheapestSplit(['Bananer', 'Melk']);

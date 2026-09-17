@@ -11,6 +11,7 @@ class ProductSuggestion {
     this.quantity,
     this.price,
     this.storeName,
+    this.lastObservedAt,
   });
 
   final String name;
@@ -25,4 +26,11 @@ class ProductSuggestion {
 
   /// Which store this [price] was observed at, if known.
   final String? storeName;
+
+  /// When [price] was last confirmed. Third-party price data can be
+  /// wildly uneven in freshness — some listings are updated daily, others
+  /// haven't changed in years — so callers that care about accuracy (e.g.
+  /// "cheapest store right now") should check this rather than trusting
+  /// [price] blindly.
+  final DateTime? lastObservedAt;
 }

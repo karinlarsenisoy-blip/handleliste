@@ -74,6 +74,7 @@ class KassalappService {
             quantity: (weight != null && weightUnit != null) ? '$weight $weightUnit' : null,
             price: p['current_price'] as num?,
             storeName: store?['name'] as String?,
+            lastObservedAt: _latestPriceDate(p['price_history'] as List<dynamic>?),
           );
         })
         .toList();
@@ -85,6 +86,24 @@ class KassalappService {
       return a.price!.compareTo(b.price!);
     });
     return suggestions.take(8).toList();
+  }
+
+  /// Kassalapp's `current_price` is only as fresh as the last entry in its
+  /// own price history — we saw listings where that was years old — so this
+  /// finds the most recent date in [priceHistory] to know how much to trust
+  /// [ProductSuggestion.price].
+  static DateTime? _latestPriceDate(List<dynamic>? priceHistory) {
+    if (priceHistory == null || priceHistory.isEmpty) return null;
+
+    DateTime? latest;
+    for (final entry in priceHistory.cast<Map<String, dynamic>>()) {
+      final dateString = entry['date'] as String?;
+      if (dateString == null) continue;
+      final date = DateTime.tryParse(dateString);
+      if (date == null) continue;
+      if (latest == null || date.isAfter(latest)) latest = date;
+    }
+    return latest;
   }
 }
 

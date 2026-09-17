@@ -4,11 +4,22 @@ import '../models/store_total.dart';
 import 'kassalapp_service.dart';
 import 'price_service.dart';
 
-/// For a list of item names, works out where to buy it cheapest —
+/// A price is only used for "what's cheapest right now" if it was actually
+/// observed within this window — third-party price data can be years out of
+/// date (Kassalapp listings have ranged from same-day to 2023), and using a
+/// stale price to declare a store "cheapest" would be actively misleading
+/// for a feature whose whole point is up-to-date accuracy at the moment the
+/// user is about to shop.
+const _maxPriceAge = Duration(days: 30);
+
+/// For a list of item names, works out where to buy it cheapest right now —
 /// combining our own crowdsourced [PriceService] data (currently the only
 /// source that can ever cover Kiwi/Rema 1000, since Kassalapp has no
 /// listings for either — see project notes) with [KassalappService] for the
-/// chains it does cover (Coop, SPAR, Meny, Joker, Oda).
+/// chains it does cover (Coop, SPAR, Meny, Joker, Oda). Both are re-queried
+/// live on every call — nothing here is cached — but a live query is only
+/// as good as how recently the underlying price was actually observed,
+/// hence [_maxPriceAge].
 ///
 /// Two views of the same underlying per-item price lookups:
 /// - [findCheapestStores]: rank single stores, for "which one store should
@@ -26,17 +37,26 @@ class CheapestStoreService {
   final PriceService _priceService;
   final KassalappService _kassalappService;
 
-  /// Every (store, price) pair we know of for [itemName], cheapest first
-  /// isn't guaranteed here — callers decide what to do with the full set.
-  Future<List<({String storeName, num price})>> _pricesForItem(String itemName) async {
-    final results = <({String storeName, num price})>[];
+  bool _isFresh(DateTime? observedAt) {
+    if (observedAt == null) return false;
+    return DateTime.now().difference(observedAt) <= _maxPriceAge;
+  }
+
+  /// Every (store, price, last-observed) triple we know of for [itemName]
+  /// that's still fresh enough to trust — cheapest first isn't guaranteed
+  /// here, callers decide what to do with the full set.
+  Future<List<({String storeName, num price, DateTime lastObservedAt})>> _pricesForItem(
+    String itemName,
+  ) async {
+    final results = <({String storeName, num price, DateTime lastObservedAt})>[];
     final seenStores = <String>{};
 
     final ownPrices = await _priceService.searchCurrentPrices(itemName);
     for (final price in ownPrices) {
+      if (!_isFresh(price.lastObservedAt)) continue;
       final storeName = displayNameForChainId(price.storeChainId);
       if (!seenStores.add(storeName)) continue;
-      results.add((storeName: storeName, price: price.price));
+      results.add((storeName: storeName, price: price.price, lastObservedAt: price.lastObservedAt));
     }
 
     if (KassalappService.isConfigured) {
@@ -46,9 +66,10 @@ class CheapestStoreService {
           final rawStoreName = suggestion.storeName;
           final price = suggestion.price;
           if (rawStoreName == null || price == null) continue;
+          if (!_isFresh(suggestion.lastObservedAt)) continue;
           final storeName = canonicalStoreName(rawStoreName);
           if (!seenStores.add(storeName)) continue;
-          results.add((storeName: storeName, price: price));
+          results.add((storeName: storeName, price: price, lastObservedAt: suggestion.lastObservedAt!));
         }
       } catch (_) {
         // Kassalapp is a supplementary source — keep going with what we
@@ -64,8 +85,9 @@ class CheapestStoreService {
 
     for (final itemName in itemNames) {
       for (final entry in await _pricesForItem(itemName)) {
-        (matchedItemsByStore[entry.storeName] ??= [])
-            .add(MatchedItem(name: itemName, price: entry.price));
+        (matchedItemsByStore[entry.storeName] ??= []).add(
+          MatchedItem(name: itemName, price: entry.price, lastObservedAt: entry.lastObservedAt),
+        );
       }
     }
 
@@ -103,7 +125,12 @@ class CheapestStoreService {
       for (final entry in prices.skip(1)) {
         if (entry.price < cheapest.price) cheapest = entry;
       }
-      assignments.add(ItemAssignment(itemName: itemName, storeName: cheapest.storeName, price: cheapest.price));
+      assignments.add(ItemAssignment(
+        itemName: itemName,
+        storeName: cheapest.storeName,
+        price: cheapest.price,
+        lastObservedAt: cheapest.lastObservedAt,
+      ));
     }
 
     return ShoppingSplit(assignments: assignments, unmatchedItems: unmatched);

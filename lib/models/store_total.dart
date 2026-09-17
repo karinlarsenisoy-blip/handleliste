@@ -1,9 +1,15 @@
 /// One list item priced at a particular store.
 class MatchedItem {
-  MatchedItem({required this.name, required this.price});
+  MatchedItem({required this.name, required this.price, required this.lastObservedAt});
 
   final String name;
   final num price;
+
+  /// When this price was last confirmed — always within the freshness
+  /// window CheapestStoreService enforces, but still worth showing so the
+  /// user can judge for themselves (a price from this morning reads very
+  /// differently from one from three weeks ago).
+  final DateTime lastObservedAt;
 }
 
 /// The total cost of buying as many of a shopping list's items as we have a

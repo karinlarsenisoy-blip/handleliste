@@ -34,6 +34,17 @@ class CheapestStoreScreen extends StatefulWidget {
   State<CheapestStoreScreen> createState() => _CheapestStoreScreenState();
 }
 
+/// A short, human "how fresh is this price" label — the whole point of
+/// showing it is to build trust in an "as of right now" feature, so it
+/// needs to be honest when a price is a few weeks old, not just always say
+/// something reassuring-sounding.
+String _freshnessLabel(DateTime lastObservedAt) {
+  final age = DateTime.now().difference(lastObservedAt);
+  if (age.inHours < 24) return 'Sett i dag';
+  if (age.inDays == 1) return 'Sett i går';
+  return 'Sett for ${age.inDays} dager siden';
+}
+
 class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
   late final Future<List<String>> _itemNamesFuture = _loadItemNames();
   late final Future<List<StoreTotal>> _singleStoreFuture =
@@ -81,6 +92,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.check_circle_outline, color: Colors.green),
                   title: Text(item.name),
+                  subtitle: Text(_freshnessLabel(item.lastObservedAt)),
                   trailing: Text('${item.price.toStringAsFixed(2)} kr'),
                 ),
             ],
@@ -164,75 +176,155 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
     );
   }
 
+  /// How much cheaper the split is than buying the same (overlapping) items
+  /// at the single best store — only counting items that exist at both, so
+  /// this never overstates the saving by crediting items that store doesn't
+  /// even carry.
+  ({num amount, num singleStoreTotal, String singleStoreName, int itemCount})? _computeSavings(
+    ShoppingSplit split,
+    List<StoreTotal> singleStoreTotals,
+  ) {
+    if (singleStoreTotals.isEmpty) return null;
+    final bestSingleStore = singleStoreTotals.first;
+    final priceAtBestStore = {for (final item in bestSingleStore.matchedItems) item.name: item.price};
+
+    num singleStoreCost = 0;
+    num splitCostForSameItems = 0;
+    var overlapCount = 0;
+    for (final assignment in split.assignments) {
+      final priceThere = priceAtBestStore[assignment.itemName];
+      if (priceThere == null) continue;
+      singleStoreCost += priceThere;
+      splitCostForSameItems += assignment.price;
+      overlapCount++;
+    }
+    if (overlapCount == 0) return null;
+
+    return (
+      amount: singleStoreCost - splitCostForSameItems,
+      singleStoreTotal: singleStoreCost,
+      singleStoreName: bestSingleStore.storeName,
+      itemCount: overlapCount,
+    );
+  }
+
   Widget _buildSplitTab() {
-    return FutureBuilder<ShoppingSplit>(
-      future: _splitFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
+    return FutureBuilder<List<StoreTotal>>(
+      future: _singleStoreFuture,
+      builder: (context, singleStoreSnapshot) {
+        if (!singleStoreSnapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
-          return Center(child: Text('Noe gikk galt: ${snapshot.error}'));
-        }
+        final singleStoreTotals = singleStoreSnapshot.data!;
 
-        final split = snapshot.data!;
-        if (split.assignments.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(
-              child: Text(
-                'Fant ingen kjente priser for varene på denne listen ennå.',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          );
-        }
+        return FutureBuilder<ShoppingSplit>(
+          future: _splitFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('Noe gikk galt: ${snapshot.error}'));
+            }
 
-        final byStore = split.assignmentsByStore;
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            for (final entry in byStore.entries) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(entry.key, style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 4),
-                      for (final assignment in entry.value)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(child: Text(assignment.itemName)),
-                              Text('${assignment.price.toStringAsFixed(2)} kr'),
-                            ],
-                          ),
-                        ),
-                    ],
+            final split = snapshot.data!;
+            if (split.assignments.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: Text(
+                    'Fant ingen kjente priser for varene på denne listen ennå.',
+                    textAlign: TextAlign.center,
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            if (split.unmatchedItems.isNotEmpty) ...[
-              const Divider(),
-              Text('Ingen kjent pris', style: Theme.of(context).textTheme.titleMedium),
-              for (final name in split.unmatchedItems)
-                ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(name)),
-            ],
-            const Divider(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              );
+            }
+
+            final byStore = split.assignmentsByStore;
+            final savings = _computeSavings(split, singleStoreTotals);
+
+            return ListView(
+              padding: const EdgeInsets.all(16),
               children: [
-                Text('Totalt · ${byStore.length} butikker', style: Theme.of(context).textTheme.titleMedium),
-                Text('${split.total.toStringAsFixed(2)} kr', style: Theme.of(context).textTheme.titleMedium),
+                if (savings != null) ...[
+                  Card(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            savings.amount > 0
+                                ? 'Du sparer ${savings.amount.toStringAsFixed(2)} kr'
+                                : 'Ingen besparelse ved å splitte akkurat nå',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Sammenlignet med å kjøpe de samme ${savings.itemCount} varene hos '
+                            '${savings.singleStoreName} (${savings.singleStoreTotal.toStringAsFixed(2)} kr)',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                for (final entry in byStore.entries) ...[
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(entry.key, style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 4),
+                          for (final assignment in entry.value)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(assignment.itemName),
+                                  ),
+                                  Text(
+                                    _freshnessLabel(assignment.lastObservedAt),
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text('${assignment.price.toStringAsFixed(2)} kr'),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (split.unmatchedItems.isNotEmpty) ...[
+                  const Divider(),
+                  Text('Ingen kjent pris', style: Theme.of(context).textTheme.titleMedium),
+                  for (final name in split.unmatchedItems)
+                    ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(name)),
+                ],
+                const Divider(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Totalt · ${byStore.length} butikker', style: Theme.of(context).textTheme.titleMedium),
+                    Text('${split.total.toStringAsFixed(2)} kr', style: Theme.of(context).textTheme.titleMedium),
+                  ],
+                ),
               ],
-            ),
-          ],
+            );
+          },
         );
       },
     );
