@@ -49,3 +49,9 @@ app.*.map.json
 
 # Firebase CLI deploy cache (local only, not needed in version control)
 .firebase/
+
+# API keys/secrets — never commit real values, see config/kassalapp.example.json
+config/kassalapp.json
+
+# Reference screenshots dropped in during chat, not project source
+/Sesum/

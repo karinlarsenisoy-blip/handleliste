@@ -4,7 +4,7 @@
     {
       "name": "handleliste-app-web",
       "runtimeExecutable": "flutter",
-      "runtimeArgs": ["run", "-d", "chrome", "--web-port", "5051"],
+      "runtimeArgs": ["run", "-d", "web-server", "--web-port", "5051", "--release", "--dart-define-from-file", "config/kassalapp.json"],
       "port": 5051
     }
   ]

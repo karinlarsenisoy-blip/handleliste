@@ -5,6 +5,7 @@ import '../models/item.dart';
 import '../services/category_service.dart';
 import '../services/item_service.dart';
 import 'item_tile.dart';
+import 'product_name_field.dart';
 
 class CategoryTile extends StatefulWidget {
   const CategoryTile({
@@ -174,9 +175,9 @@ class _CategoryTileState extends State<CategoryTile> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
+                  child: ProductNameField(
                     controller: _newItemController,
-                    decoration: const InputDecoration(hintText: 'Ny vare i denne kategorien...'),
+                    hintText: 'Ny vare i denne kategorien...',
                     onSubmitted: (_) => _addItem(),
                   ),
                 ),
