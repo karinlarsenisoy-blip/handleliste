@@ -46,3 +46,13 @@ bool isKnownGroceryStoreName(String storeName) {
   final lower = storeName.toLowerCase();
   return _knownGroceryStoreNameFragments.any(lower.contains);
 }
+
+/// The display name for a chain id (e.g. `'coop_extra'` -> `'Coop Extra'`),
+/// used when combining our own crowdsourced prices (keyed by chain id) with
+/// a display-name-keyed source like Kassalapp.
+String displayNameForChainId(String chainId) {
+  for (final store in knownStores) {
+    if (store.id == chainId) return store.name;
+  }
+  return chainId;
+}

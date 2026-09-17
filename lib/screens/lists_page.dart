@@ -5,6 +5,7 @@ import '../services/category_service.dart';
 import '../services/item_service.dart';
 import '../services/list_service.dart';
 import 'categories_page.dart';
+import 'cheapest_store_screen.dart';
 import 'profile_screen.dart';
 
 /// Top-level screen: a row of tabs ("Ukehandel", "Bursdag", ...), each
@@ -159,6 +160,24 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
                   icon: const Icon(Icons.delete_outline),
                   tooltip: 'Slett liste',
                   onPressed: _deleteCurrentList,
+                ),
+              if (lists.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.savings_outlined),
+                  tooltip: 'Finn billigst',
+                  onPressed: () {
+                    final current = lists[_tabController!.index];
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CheapestStoreScreen(
+                          uid: widget.uid,
+                          listId: current.id,
+                          listName: current.name,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               IconButton(
                 icon: const Icon(Icons.account_circle),
