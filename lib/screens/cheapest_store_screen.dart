@@ -82,15 +82,22 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
       _locationMessage = null;
     });
 
-    final position = await widget.locationService.getCurrentPosition();
-    if (position == null) {
+    final result = await widget.locationService.getCurrentPosition();
+    if (!result.isSuccess) {
       setState(() {
         _isLoadingLocation = false;
-        _locationMessage = 'Fant ikke posisjonen din — sjekk at posisjonstilgang er tillatt.';
+        _locationMessage = switch (result.failureReason!) {
+          LocationFailureReason.permissionDenied =>
+            'Fikk ikke tilgang til posisjonen din — sjekk posisjonstillatelsen for denne siden i nettleseren.',
+          LocationFailureReason.timeout => 'Brukte for lang tid på å finne posisjonen din — prøv igjen.',
+          LocationFailureReason.unknown =>
+            'Klarte ikke å hente posisjonen din${result.debugMessage != null ? ' (${result.debugMessage})' : ''}.',
+        };
       });
       return;
     }
 
+    final position = (latitude: result.latitude!, longitude: result.longitude!);
     final nearby = await widget.storeLocatorService.findNearby(position.latitude, position.longitude);
     if (!mounted) return;
     setState(() {
@@ -397,7 +404,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
         body: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
               child: Row(
                 children: [
                   Expanded(
@@ -418,6 +425,17 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Viser avstand fra deg til nærmeste butikk av hvert slag',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             if (_locationMessage != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),

@@ -1,30 +1,52 @@
+import 'dart:async';
+
 import 'package:geolocator/geolocator.dart';
 
-/// Wraps device geolocation for "stores near me" — handles the permission
-/// dance and returns null on any failure (service disabled, permission
-/// denied, timeout) rather than throwing, so callers can just show a
-/// friendly "couldn't get your location" state instead of a crash.
-class LocationService {
-  Future<({double latitude, double longitude})?> getCurrentPosition() async {
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return null;
+enum LocationFailureReason { permissionDenied, timeout, unknown }
 
+class LocationResult {
+  LocationResult.success(this.latitude, this.longitude)
+      : failureReason = null,
+        debugMessage = null;
+
+  LocationResult.failure(this.failureReason, {this.debugMessage})
+      : latitude = null,
+        longitude = null;
+
+  final double? latitude;
+  final double? longitude;
+  final LocationFailureReason? failureReason;
+
+  /// The raw underlying error, when the failure wasn't a clean permission
+  /// denial — shown to the user for an unexpected failure so a report back
+  /// to us actually says what broke, instead of just "it didn't work".
+  final String? debugMessage;
+
+  bool get isSuccess => failureReason == null;
+}
+
+/// Wraps device geolocation for "stores near me". Deliberately does NOT
+/// check `Geolocator.isLocationServiceEnabled()` first — that check has
+/// been unreliable on web (observed returning as if disabled even with
+/// permission granted) and isn't actually needed: if location is genuinely
+/// unavailable, `getCurrentPosition` fails on its own with a clear error.
+class LocationService {
+  Future<LocationResult> getCurrentPosition() async {
+    try {
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        return null;
+        return LocationResult.failure(LocationFailureReason.permissionDenied);
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
-      ).timeout(const Duration(seconds: 15));
-
-      return (latitude: position.latitude, longitude: position.longitude);
-    } catch (_) {
-      return null;
+      final position = await Geolocator.getCurrentPosition().timeout(const Duration(seconds: 15));
+      return LocationResult.success(position.latitude, position.longitude);
+    } on TimeoutException {
+      return LocationResult.failure(LocationFailureReason.timeout);
+    } catch (e) {
+      return LocationResult.failure(LocationFailureReason.unknown, debugMessage: e.toString());
     }
   }
 }
