@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Handleliste bruker kameraet til å ta bilde av kvitteringer.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Handleliste trenger tilgang til bildebiblioteket for å velge et kvitteringsbilde.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

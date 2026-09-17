@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'lists_page.dart';
+import 'home_shell.dart';
 import 'sign_in_screen.dart';
 
 class AuthGate extends StatelessWidget {
@@ -22,7 +22,7 @@ class AuthGate extends StatelessWidget {
         if (user == null) {
           return const SignInScreen();
         }
-        return ListsPage(uid: user.uid);
+        return HomeShell(uid: user.uid);
       },
     );
   }
