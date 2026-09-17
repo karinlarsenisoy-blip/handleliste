@@ -30,6 +30,8 @@
 	<string>Handleliste bruker kameraet til å ta bilde av kvitteringer.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Handleliste trenger tilgang til bildebiblioteket for å velge et kvitteringsbilde.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Handleliste bruker posisjonen din til å finne avstand til butikker i nærheten.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

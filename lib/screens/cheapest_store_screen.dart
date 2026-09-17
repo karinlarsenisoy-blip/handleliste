@@ -2,16 +2,25 @@ import 'package:flutter/material.dart';
 
 import '../models/cheapest_store_analysis.dart';
 import '../models/shopping_split.dart';
+import '../models/store_location.dart';
 import '../models/store_total.dart';
 import '../services/category_service.dart';
 import '../services/cheapest_store_service.dart';
 import '../services/item_service.dart';
+import '../services/location_service.dart';
+import '../services/store_locator_service.dart';
+import '../utils/distance.dart';
 
 /// Shows two ways to buy everything on one shopping list as cheaply as
 /// possible: pick a single store to visit, or split the list across
 /// whichever stores are individually cheapest per item. Both come from one
 /// [CheapestStoreService.analyze] call so they're always consistent with
 /// each other — see that method's doc for why that matters.
+///
+/// Optionally, tapping "Bruk min posisjon" adds real distance to the
+/// nearest branch of each chain (via [StoreLocatorService]/OpenStreetMap) —
+/// opt-in, since it needs a location permission and isn't required for the
+/// core price comparison to work.
 class CheapestStoreScreen extends StatefulWidget {
   CheapestStoreScreen({
     super.key,
@@ -21,9 +30,13 @@ class CheapestStoreScreen extends StatefulWidget {
     CategoryService? categoryService,
     ItemService? itemService,
     CheapestStoreService? cheapestStoreService,
+    LocationService? locationService,
+    StoreLocatorService? storeLocatorService,
   })  : categoryService = categoryService ?? CategoryService(),
         itemService = itemService ?? ItemService(),
-        cheapestStoreService = cheapestStoreService ?? CheapestStoreService();
+        cheapestStoreService = cheapestStoreService ?? CheapestStoreService(),
+        locationService = locationService ?? LocationService(),
+        storeLocatorService = storeLocatorService ?? StoreLocatorService();
 
   final String uid;
   final String listId;
@@ -31,6 +44,8 @@ class CheapestStoreScreen extends StatefulWidget {
   final CategoryService categoryService;
   final ItemService itemService;
   final CheapestStoreService cheapestStoreService;
+  final LocationService locationService;
+  final StoreLocatorService storeLocatorService;
 
   @override
   State<CheapestStoreScreen> createState() => _CheapestStoreScreenState();
@@ -55,6 +70,62 @@ class _Loaded {
 
 class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
   late final Future<_Loaded> _future = _load();
+
+  ({double latitude, double longitude})? _position;
+  List<StoreLocation> _nearbyStores = [];
+  bool _isLoadingLocation = false;
+  String? _locationMessage;
+
+  Future<void> _useMyLocation() async {
+    setState(() {
+      _isLoadingLocation = true;
+      _locationMessage = null;
+    });
+
+    final position = await widget.locationService.getCurrentPosition();
+    if (position == null) {
+      setState(() {
+        _isLoadingLocation = false;
+        _locationMessage = 'Fant ikke posisjonen din — sjekk at posisjonstilgang er tillatt.';
+      });
+      return;
+    }
+
+    final nearby = await widget.storeLocatorService.findNearby(position.latitude, position.longitude);
+    if (!mounted) return;
+    setState(() {
+      _position = position;
+      _nearbyStores = nearby;
+      _isLoadingLocation = false;
+      _locationMessage = nearby.isEmpty
+          ? 'Fant ingen butikker i nærheten akkurat nå (eller kunne ikke hente butikkposisjoner).'
+          : null;
+    });
+  }
+
+  /// The nearest known branch of [chainName] to [_position], if any.
+  ({StoreLocation location, double distanceMeters})? _nearestBranch(String chainName) {
+    final position = _position;
+    if (position == null) return null;
+
+    StoreLocation? nearest;
+    double? nearestDistance;
+    for (final location in _nearbyStores) {
+      if (location.chainName != chainName) continue;
+      final distance = haversineMeters(
+        position.latitude,
+        position.longitude,
+        location.latitude,
+        location.longitude,
+      );
+      if (nearestDistance == null || distance < nearestDistance) {
+        nearestDistance = distance;
+        nearest = location;
+      }
+    }
+    if (nearest == null || nearestDistance == null) return null;
+    return (location: nearest, distanceMeters: nearestDistance);
+  }
 
   Future<_Loaded> _load() async {
     final categories = await widget.categoryService.watchCategories(widget.uid, widget.listId).first;
@@ -141,13 +212,28 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
       itemBuilder: (context, index) {
         final storeTotal = totals[index];
         final isCheapest = index == 0;
+        final nearest = _nearestBranch(storeTotal.storeName);
+
         return Card(
           color: isCheapest ? Theme.of(context).colorScheme.primaryContainer : null,
           child: ListTile(
             onTap: () => _showDetails(storeTotal, itemNames),
             leading: isCheapest ? const Icon(Icons.emoji_events_outlined) : null,
             title: Text(storeTotal.storeName, style: Theme.of(context).textTheme.titleMedium),
-            subtitle: Text('${storeTotal.matchedItemCount} av ${storeTotal.totalItemCount} varer funnet'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${storeTotal.matchedItemCount} av ${storeTotal.totalItemCount} varer funnet'),
+                if (_position != null)
+                  Text(
+                    nearest == null
+                        ? 'Ingen kjent butikk i nærheten'
+                        : '${(nearest.distanceMeters / 1000).toStringAsFixed(1)} km · ${nearest.location.name}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
+            ),
+            isThreeLine: _position != null,
             trailing: Text(
               '${storeTotal.total.toStringAsFixed(2)} kr',
               style: Theme.of(context).textTheme.titleMedium,
@@ -308,24 +394,60 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
             ],
           ),
         ),
-        body: FutureBuilder<_Loaded>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Noe gikk galt: ${snapshot.error}'));
-            }
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoadingLocation ? null : _useMyLocation,
+                      icon: _isLoadingLocation
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.my_location, size: 18),
+                      label: Text(
+                        _position == null ? 'Bruk min posisjon' : 'Oppdater posisjon',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_locationMessage != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  _locationMessage!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            Expanded(
+              child: FutureBuilder<_Loaded>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Noe gikk galt: ${snapshot.error}'));
+                  }
 
-            final loaded = snapshot.data!;
-            return TabBarView(
-              children: [
-                _buildSingleStoreTab(loaded.itemNames, loaded.analysis.storeTotals),
-                _buildSplitTab(loaded.analysis.split, loaded.analysis.storeTotals),
-              ],
-            );
-          },
+                  final loaded = snapshot.data!;
+                  return TabBarView(
+                    children: [
+                      _buildSingleStoreTab(loaded.itemNames, loaded.analysis.storeTotals),
+                      _buildSplitTab(loaded.analysis.split, loaded.analysis.storeTotals),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
