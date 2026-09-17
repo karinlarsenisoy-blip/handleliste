@@ -1,3 +1,4 @@
+import '../models/cheapest_store_analysis.dart';
 import '../models/shopping_split.dart';
 import '../models/store.dart';
 import '../models/store_total.dart';
@@ -12,6 +13,8 @@ import 'price_service.dart';
 /// user is about to shop.
 const _maxPriceAge = Duration(days: 30);
 
+typedef _PriceEntry = ({String storeName, num price, DateTime lastObservedAt});
+
 /// For a list of item names, works out where to buy it cheapest right now —
 /// combining our own crowdsourced [PriceService] data (currently the only
 /// source that can ever cover Kiwi/Rema 1000, since Kassalapp has no
@@ -21,14 +24,16 @@ const _maxPriceAge = Duration(days: 30);
 /// as good as how recently the underlying price was actually observed,
 /// hence [_maxPriceAge].
 ///
-/// Two views of the same underlying per-item price lookups:
-/// - [findCheapestStores]: rank single stores, for "which one store should
-///   I just go to".
-/// - [findCheapestSplit]: the mathematically cheapest way to buy the whole
-///   list, split across as many stores as it takes — each item assigned to
-///   wherever it's individually cheapest. Which one is actually worth it
-///   depends on how much extra travel the split costs, which this doesn't
-///   know about yet (that's the route feature).
+/// [analyze] fetches every item's prices exactly once and derives two views
+/// from that single shared dataset, so they can never disagree with each
+/// other:
+/// - store totals: rank single stores, for "which one store should I just
+///   go to".
+/// - split: the mathematically cheapest way to buy the whole list, split
+///   across as many stores as it takes — each item assigned to wherever
+///   it's individually cheapest. Which one is actually worth it depends on
+///   how much extra travel the split costs, which this doesn't know about
+///   yet (that's the route feature).
 class CheapestStoreService {
   CheapestStoreService({PriceService? priceService, KassalappService? kassalappService})
       : _priceService = priceService ?? PriceService(),
@@ -45,10 +50,8 @@ class CheapestStoreService {
   /// Every (store, price, last-observed) triple we know of for [itemName]
   /// that's still fresh enough to trust — cheapest first isn't guaranteed
   /// here, callers decide what to do with the full set.
-  Future<List<({String storeName, num price, DateTime lastObservedAt})>> _pricesForItem(
-    String itemName,
-  ) async {
-    final results = <({String storeName, num price, DateTime lastObservedAt})>[];
+  Future<List<_PriceEntry>> _pricesForItem(String itemName) async {
+    final results = <_PriceEntry>[];
     final seenStores = <String>{};
 
     final ownPrices = await _priceService.searchCurrentPrices(itemName);
@@ -80,11 +83,25 @@ class CheapestStoreService {
     return results;
   }
 
-  Future<List<StoreTotal>> findCheapestStores(List<String> itemNames) async {
+  /// Fetches prices for every item exactly once, then builds both the
+  /// single-store ranking and the multi-store split from that same data.
+  Future<CheapestStoreAnalysis> analyze(List<String> itemNames) async {
+    final pricesByItem = <String, List<_PriceEntry>>{};
+    for (final itemName in itemNames) {
+      pricesByItem[itemName] = await _pricesForItem(itemName);
+    }
+
+    return CheapestStoreAnalysis(
+      storeTotals: _buildStoreTotals(itemNames, pricesByItem),
+      split: _buildSplit(itemNames, pricesByItem),
+    );
+  }
+
+  List<StoreTotal> _buildStoreTotals(List<String> itemNames, Map<String, List<_PriceEntry>> pricesByItem) {
     final matchedItemsByStore = <String, List<MatchedItem>>{};
 
     for (final itemName in itemNames) {
-      for (final entry in await _pricesForItem(itemName)) {
+      for (final entry in pricesByItem[itemName] ?? const <_PriceEntry>[]) {
         (matchedItemsByStore[entry.storeName] ??= []).add(
           MatchedItem(name: itemName, price: entry.price, lastObservedAt: entry.lastObservedAt),
         );
@@ -110,12 +127,12 @@ class CheapestStoreService {
     return results;
   }
 
-  Future<ShoppingSplit> findCheapestSplit(List<String> itemNames) async {
+  ShoppingSplit _buildSplit(List<String> itemNames, Map<String, List<_PriceEntry>> pricesByItem) {
     final assignments = <ItemAssignment>[];
     final unmatched = <String>[];
 
     for (final itemName in itemNames) {
-      final prices = await _pricesForItem(itemName);
+      final prices = pricesByItem[itemName] ?? const <_PriceEntry>[];
       if (prices.isEmpty) {
         unmatched.add(itemName);
         continue;

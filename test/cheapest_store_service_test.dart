@@ -5,7 +5,7 @@ import 'package:handleliste_app/services/cheapest_store_service.dart';
 import 'package:handleliste_app/services/price_service.dart';
 
 void main() {
-  group('CheapestStoreService', () {
+  group('CheapestStoreService.analyze — store totals', () {
     test('ranks stores by list coverage first, then cheapest total, using our own price data', () async {
       final firestore = FakeFirebaseFirestore();
       final priceService = PriceService(firestore: firestore);
@@ -31,7 +31,7 @@ void main() {
       ));
       // Rema has no known price for Melk — only Bananer.
 
-      final results = await service.findCheapestStores(['Bananer', 'Melk']);
+      final results = (await service.analyze(['Bananer', 'Melk'])).storeTotals;
 
       expect(results, hasLength(2));
       expect(results[0].storeName, 'Kiwi');
@@ -46,7 +46,7 @@ void main() {
       final firestore = FakeFirebaseFirestore();
       final service = CheapestStoreService(priceService: PriceService(firestore: firestore));
 
-      expect(await service.findCheapestStores(['Noe helt ukjent']), isEmpty);
+      expect((await service.analyze(['Noe helt ukjent'])).storeTotals, isEmpty);
     });
 
     test('ignores a price that is older than 30 days, even if it is the only one known', () async {
@@ -61,11 +61,11 @@ void main() {
         observedAt: DateTime.now().subtract(const Duration(days: 45)),
       ));
 
-      expect(await service.findCheapestStores(['Bananer']), isEmpty);
+      expect((await service.analyze(['Bananer'])).storeTotals, isEmpty);
     });
   });
 
-  group('CheapestStoreService.findCheapestSplit', () {
+  group('CheapestStoreService.analyze — split', () {
     test('assigns each item to whichever store is individually cheapest for it', () async {
       final firestore = FakeFirebaseFirestore();
       final priceService = PriceService(firestore: firestore);
@@ -90,7 +90,7 @@ void main() {
         observedAt: DateTime.now().subtract(const Duration(days: 5)),
       ));
 
-      final split = await service.findCheapestSplit(['Bananer', 'Melk']);
+      final split = (await service.analyze(['Bananer', 'Melk'])).split;
 
       expect(split.assignments, hasLength(2));
       expect(split.total, 22.90 + 19.90);
@@ -105,11 +105,43 @@ void main() {
       final firestore = FakeFirebaseFirestore();
       final service = CheapestStoreService(priceService: PriceService(firestore: firestore));
 
-      final split = await service.findCheapestSplit(['Noe helt ukjent']);
+      final split = (await service.analyze(['Noe helt ukjent'])).split;
 
       expect(split.assignments, isEmpty);
       expect(split.unmatchedItems, ['Noe helt ukjent']);
       expect(split.total, 0);
+    });
+  });
+
+  group('CheapestStoreService.analyze — consistency between the two views', () {
+    test('store totals and split are always built from the exact same fetched prices', () async {
+      final firestore = FakeFirebaseFirestore();
+      final priceService = PriceService(firestore: firestore);
+      final service = CheapestStoreService(priceService: priceService);
+
+      await priceService.contributeObservation(PriceObservation(
+        storeChainId: 'kiwi',
+        itemName: 'Bananer',
+        price: 24.90,
+        observedAt: DateTime.now().subtract(const Duration(days: 5)),
+      ));
+      await priceService.contributeObservation(PriceObservation(
+        storeChainId: 'rema1000',
+        itemName: 'Bananer',
+        price: 22.90,
+        observedAt: DateTime.now().subtract(const Duration(days: 5)),
+      ));
+
+      final analysis = await service.analyze(['Bananer']);
+
+      // The price Kiwi shows in the single-store view for Bananer must be
+      // the exact same price the split assigns Bananer to (at whichever
+      // store), fetched once rather than twice — no room for the two tabs
+      // to ever disagree about what the price of an item actually was.
+      final kiwiPrice = analysis.storeTotals.firstWhere((s) => s.storeName == 'Kiwi').matchedItems.single.price;
+      expect(kiwiPrice, 24.90);
+      expect(analysis.split.assignments.single.price, 22.90);
+      expect(analysis.split.assignments.single.storeName, 'Rema 1000');
     });
   });
 }
