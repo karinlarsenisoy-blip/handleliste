@@ -14,7 +14,6 @@ void main() {
     required ListService listService,
     required CategoryService categoryService,
     required ItemService itemService,
-    required AccountService accountService,
   }) async {
     await tester.pumpWidget(MaterialApp(
       home: ListsPage(
@@ -22,7 +21,6 @@ void main() {
         listService: listService,
         categoryService: categoryService,
         itemService: itemService,
-        accountService: accountService,
       ),
     ));
     await tester.pumpAndSettle();
@@ -35,7 +33,6 @@ void main() {
       listService: ListService(firestore: firestore),
       categoryService: CategoryService(firestore: firestore),
       itemService: ItemService(firestore: firestore),
-      accountService: AccountService(firestore: firestore),
     );
 
     expect(find.textContaining('Ingen lister ennå'), findsOneWidget);
@@ -48,7 +45,6 @@ void main() {
       listService: ListService(firestore: firestore),
       categoryService: CategoryService(firestore: firestore),
       itemService: ItemService(firestore: firestore),
-      accountService: AccountService(firestore: firestore),
     );
 
     final dialogTextField = find.descendant(
@@ -87,7 +83,6 @@ void main() {
     final listService = ListService(firestore: firestore);
     final categoryService = CategoryService(firestore: firestore);
     final itemService = ItemService(firestore: firestore);
-    final accountService = AccountService(firestore: firestore);
 
     await listService.addList('test-uid', 'Ukehandel');
     final lists = await listService.watchLists('test-uid').first;
@@ -95,7 +90,7 @@ void main() {
     final categories = await categoryService.watchCategories('test-uid', lists.first.id).first;
     await itemService.addItem('test-uid', lists.first.id, categories.first.id, 'Melk');
 
-    await pumpListsPage(tester, listService: listService, categoryService: categoryService, itemService: itemService, accountService: accountService);
+    await pumpListsPage(tester, listService: listService, categoryService: categoryService, itemService: itemService);
 
     await tester.tap(find.byTooltip('Slett kategori'));
     await tester.pumpAndSettle();
@@ -119,7 +114,6 @@ void main() {
     final listService = ListService(firestore: firestore);
     final categoryService = CategoryService(firestore: firestore);
     final itemService = ItemService(firestore: firestore);
-    final accountService = AccountService(firestore: firestore);
 
     await listService.addList('test-uid', 'Ukehandel');
     final lists = await listService.watchLists('test-uid').first;
@@ -127,7 +121,7 @@ void main() {
     final categories = await categoryService.watchCategories('test-uid', lists.first.id).first;
     await itemService.addItem('test-uid', lists.first.id, categories.first.id, 'Gammelt navn');
 
-    await pumpListsPage(tester, listService: listService, categoryService: categoryService, itemService: itemService, accountService: accountService);
+    await pumpListsPage(tester, listService: listService, categoryService: categoryService, itemService: itemService);
 
     await tester.tap(find.text('Meieri'));
     await tester.pumpAndSettle();
@@ -154,7 +148,6 @@ void main() {
     final listService = ListService(firestore: firestore);
     final categoryService = CategoryService(firestore: firestore);
     final itemService = ItemService(firestore: firestore);
-    final accountService = AccountService(firestore: firestore);
 
     await listService.addList('test-uid', 'Ukehandel');
     final lists = await listService.watchLists('test-uid').first;
@@ -162,7 +155,7 @@ void main() {
     final categories = await categoryService.watchCategories('test-uid', lists.first.id).first;
     await itemService.addItem('test-uid', lists.first.id, categories.first.id, 'Melk');
 
-    await pumpListsPage(tester, listService: listService, categoryService: categoryService, itemService: itemService, accountService: accountService);
+    await pumpListsPage(tester, listService: listService, categoryService: categoryService, itemService: itemService);
 
     await tester.tap(find.text('Meieri'));
     await tester.pumpAndSettle();

@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../utils/email_typo_checker.dart';
+
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
 
@@ -17,6 +19,18 @@ class _SignInScreenState extends State<SignInScreen> {
   bool _isRegistering = false;
   bool _isSubmitting = false;
   String? _errorMessage;
+  String? _suggestedEmail;
+
+  void _onEmailChanged(String value) {
+    setState(() => _suggestedEmail = suggestEmailCorrection(value.trim()));
+  }
+
+  void _applySuggestedEmail() {
+    if (_suggestedEmail == null) return;
+    _emailController.text = _suggestedEmail!;
+    _emailController.selection = TextSelection.collapsed(offset: _emailController.text.length);
+    setState(() => _suggestedEmail = null);
+  }
 
   @override
   void dispose() {
@@ -63,7 +77,13 @@ class _SignInScreenState extends State<SignInScreen> {
     try {
       await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
     } on FirebaseAuthException catch (e) {
-      setState(() => _errorMessage = e.message ?? 'Noe gikk galt. Prøv igjen.');
+      if (e.code == 'account-exists-with-different-credential') {
+        setState(() => _errorMessage =
+            'Du har allerede en konto med denne e-postadressen registrert med e-post/passord. '
+            'Logg inn med passordet ditt i stedet.');
+      } else {
+        setState(() => _errorMessage = e.message ?? 'Noe gikk galt. Prøv igjen.');
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -93,10 +113,23 @@ class _SignInScreenState extends State<SignInScreen> {
                           keyboardType: TextInputType.emailAddress,
                           autofillHints: const [AutofillHints.email],
                           decoration: const InputDecoration(labelText: 'E-post'),
+                          onChanged: _onEmailChanged,
                           validator: (value) => (value == null || !value.contains('@'))
                               ? 'Skriv inn en gyldig e-postadresse'
                               : null,
                         ),
+                        if (_suggestedEmail != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton(
+                                onPressed: _applySuggestedEmail,
+                                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                                child: Text('Mente du $_suggestedEmail?'),
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _passwordController,

@@ -1,12 +1,11 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/shopping_list.dart';
-import '../services/account_service.dart';
 import '../services/category_service.dart';
 import '../services/item_service.dart';
 import '../services/list_service.dart';
 import 'categories_page.dart';
+import 'profile_screen.dart';
 
 /// Top-level screen: a row of tabs ("Ukehandel", "Bursdag", ...), each
 /// showing its own independent set of categories and items.
@@ -17,17 +16,14 @@ class ListsPage extends StatefulWidget {
     ListService? listService,
     CategoryService? categoryService,
     ItemService? itemService,
-    AccountService? accountService,
   })  : listService = listService ?? ListService(),
         categoryService = categoryService ?? CategoryService(),
-        itemService = itemService ?? ItemService(),
-        accountService = accountService ?? AccountService();
+        itemService = itemService ?? ItemService();
 
   final String uid;
   final ListService listService;
   final CategoryService categoryService;
   final ItemService itemService;
-  final AccountService accountService;
 
   @override
   State<ListsPage> createState() => _ListsPageState();
@@ -119,83 +115,6 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
     );
   }
 
-  Future<String?> _promptForPassword() {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Bekreft passordet ditt'),
-        content: TextField(
-          controller: controller,
-          obscureText: true,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Passord'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Avbryt')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Bekreft'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deleteAccount() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Slette konto?'),
-        content: const Text(
-          'Dette sletter kontoen din og ALT innhold permanent — alle lister, kategorier '
-          'og varer. Dette kan ikke angres.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Avbryt')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Slett konto'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    try {
-      await widget.accountService.deleteAccount();
-    } on FirebaseAuthException catch (e) {
-      if (e.code != 'requires-recent-login') {
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(e.message ?? 'Kunne ikke slette kontoen.')));
-        }
-        return;
-      }
-
-      // Firebase krever nylig innlogging før en konto kan slettes.
-      final user = FirebaseAuth.instance.currentUser;
-      final email = user?.email;
-      if (email == null || !mounted) return;
-
-      final password = await _promptForPassword();
-      if (password == null || password.isEmpty || !mounted) return;
-
-      try {
-        await user!.reauthenticateWithCredential(
-          EmailAuthProvider.credential(email: email, password: password),
-        );
-        await widget.accountService.deleteAccount();
-      } on FirebaseAuthException catch (e2) {
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(e2.message ?? 'Kunne ikke slette kontoen.')));
-        }
-      }
-    }
-  }
-
   @override
   void dispose() {
     _tabController?.dispose();
@@ -241,20 +160,13 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
                   tooltip: 'Slett liste',
                   onPressed: _deleteCurrentList,
                 ),
-              PopupMenuButton<String>(
+              IconButton(
                 icon: const Icon(Icons.account_circle),
-                tooltip: 'Konto',
-                onSelected: (value) {
-                  if (value == 'logout') {
-                    FirebaseAuth.instance.signOut();
-                  } else if (value == 'delete') {
-                    _deleteAccount();
-                  }
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'logout', child: Text('Logg ut')),
-                  PopupMenuItem(value: 'delete', child: Text('Slett konto')),
-                ],
+                tooltip: 'Profil',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ProfileScreen(uid: widget.uid)),
+                ),
               ),
             ],
           ),
