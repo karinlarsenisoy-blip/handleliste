@@ -41,9 +41,10 @@ class CheapestStoreService {
         try {
           final suggestions = await _kassalappService.search(itemName);
           for (final suggestion in suggestions) {
-            final storeName = suggestion.storeName;
+            final rawStoreName = suggestion.storeName;
             final price = suggestion.price;
-            if (storeName == null || price == null) continue;
+            if (rawStoreName == null || price == null) continue;
+            final storeName = canonicalStoreName(rawStoreName);
             if (!storesMatchedForThisItem.add(storeName)) continue;
             totals[storeName] = (totals[storeName] ?? 0) + price;
             matchedCounts[storeName] = (matchedCounts[storeName] ?? 0) + 1;

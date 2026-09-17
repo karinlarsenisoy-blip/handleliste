@@ -56,3 +56,19 @@ String displayNameForChainId(String chainId) {
   }
   return chainId;
 }
+
+/// Normalizes a store name from a third-party source (which may use
+/// inconsistent casing, e.g. "KIWI" vs "Kiwi" across different product
+/// listings) to one consistent display form, so the same real store never
+/// gets split into separate entries just because of how it was capitalized.
+String canonicalStoreName(String rawName) {
+  final lower = rawName.trim().toLowerCase();
+  for (final store in knownStores) {
+    if (store.id == lower || store.name.toLowerCase() == lower) return store.name;
+  }
+  return rawName
+      .trim()
+      .split(RegExp(r'\s+'))
+      .map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}')
+      .join(' ');
+}
