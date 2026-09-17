@@ -20,3 +20,29 @@ const List<Store> knownStores = [
   Store('joker', 'Joker'),
   Store('annet', 'Annet'),
 ];
+
+/// Substrings (lowercase) of real, consumer-facing Norwegian grocery
+/// retailers — used to filter out non-store listings (e.g. wholesale/B2B
+/// vendors like "Engrosnett") that show up mixed into third-party product
+/// data alongside actual grocery chains.
+const List<String> _knownGroceryStoreNameFragments = [
+  'kiwi',
+  'rema',
+  'coop',
+  'extra',
+  'prix',
+  'mega',
+  'obs',
+  'spar',
+  'meny',
+  'joker',
+  'bunnpris',
+  'oda', // Oda (oda.com) is a real online grocery retailer, not a wholesaler.
+];
+
+/// Whether [storeName] looks like a real, consumer-facing Norwegian grocery
+/// store rather than a wholesaler or other non-grocery vendor.
+bool isKnownGroceryStoreName(String storeName) {
+  final lower = storeName.toLowerCase();
+  return _knownGroceryStoreNameFragments.any(lower.contains);
+}

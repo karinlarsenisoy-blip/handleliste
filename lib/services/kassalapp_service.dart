@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/product_suggestion.dart';
+import '../models/store.dart';
 
 /// API key for Kassalapp (kassal.app) — a Norwegian grocery price/product
 /// API. Provided at build/run time via `--dart-define-from-file`, never
@@ -32,7 +33,11 @@ class KassalappService {
 
     final uri = Uri.https('kassal.app', '/api/v1/products', {
       'search': query,
-      'size': '8',
+      // Kassalapp's own result order is relevance, not price — asking for a
+      // wider page and sorting client-side avoids missing the genuinely
+      // cheapest matches (e.g. a handful of small chains matching first,
+      // before the actually-cheapest one further down the unsorted list).
+      'size': '30',
     });
 
     final response = await _client
@@ -46,20 +51,40 @@ class KassalappService {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final products = (data['data'] as List<dynamic>?) ?? [];
 
-    return products.cast<Map<String, dynamic>>().map((p) {
-      final weight = p['weight'];
-      final weightUnit = p['weight_unit'] as String?;
-      final store = p['store'] as Map<String, dynamic>?;
+    final suggestions = products
+        .cast<Map<String, dynamic>>()
+        // Kassalapp's product data mixes in listings from non-grocery/
+        // wholesale vendors (e.g. "Engrosnett") alongside real store chains
+        // — those aren't somewhere an ordinary shopper can actually buy at
+        // that price, so they're excluded rather than shown as if they were
+        // a legitimate cheap option.
+        .where((p) {
+          final storeName = (p['store'] as Map<String, dynamic>?)?['name'] as String?;
+          return storeName != null && isKnownGroceryStoreName(storeName);
+        })
+        .map((p) {
+          final weight = p['weight'];
+          final weightUnit = p['weight_unit'] as String?;
+          final store = p['store'] as Map<String, dynamic>?;
 
-      return ProductSuggestion(
-        name: p['name'] as String,
-        brand: p['brand'] as String?,
-        imageUrl: p['image'] as String?,
-        quantity: (weight != null && weightUnit != null) ? '$weight $weightUnit' : null,
-        price: p['current_price'] as num?,
-        storeName: store?['name'] as String?,
-      );
-    }).toList();
+          return ProductSuggestion(
+            name: p['name'] as String,
+            brand: p['brand'] as String?,
+            imageUrl: p['image'] as String?,
+            quantity: (weight != null && weightUnit != null) ? '$weight $weightUnit' : null,
+            price: p['current_price'] as num?,
+            storeName: store?['name'] as String?,
+          );
+        })
+        .toList();
+
+    suggestions.sort((a, b) {
+      if (a.price == null && b.price == null) return 0;
+      if (a.price == null) return 1;
+      if (b.price == null) return -1;
+      return a.price!.compareTo(b.price!);
+    });
+    return suggestions.take(8).toList();
   }
 }
 

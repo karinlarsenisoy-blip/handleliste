@@ -41,12 +41,54 @@ void main() {
       expect(results.first.storeName, 'Coop');
     });
 
-    test('handles a product with no weight or store', () async {
+    test('sorts results cheapest-first, with unknown prices last', () async {
+      final client = MockClient((request) async {
+        expect(request.url.queryParameters['size'], '30');
+        return http.Response(
+          jsonEncode({
+            'data': [
+              {'name': 'Lettmelk Joker', 'current_price': 22.9, 'store': {'name': 'Joker'}},
+              {'name': 'Lettmelk Spar', 'current_price': 17.5, 'store': {'name': 'SPAR'}},
+              {'name': 'Lettmelk uten pris', 'store': {'name': 'Meny'}},
+              {'name': 'Lettmelk Coop', 'current_price': 17.9, 'store': {'name': 'Coop'}},
+            ],
+          }),
+          200,
+        );
+      });
+      final service = KassalappService(client: client, apiKey: 'test-key');
+
+      final results = await service.search('lettmelk');
+
+      expect(results.map((r) => r.storeName), ['SPAR', 'Coop', 'Joker', 'Meny']);
+    });
+
+    test('filters out non-grocery/wholesale vendors like Engrosnett', () async {
       final client = MockClient((request) async {
         return http.Response(
           jsonEncode({
             'data': [
-              {'name': 'Ukjent produkt', 'brand': null, 'current_price': null},
+              {'name': 'Tine Ekstra Lett Melk 1l', 'current_price': 22.92, 'store': {'name': 'Engrosnett'}},
+              {'name': 'Tine Ekstra Lett Melk 1l', 'current_price': 24.9, 'store': {'name': 'Kiwi'}},
+            ],
+          }),
+          200,
+        );
+      });
+      final service = KassalappService(client: client, apiKey: 'test-key');
+
+      final results = await service.search('ekstra lett melk');
+
+      expect(results, hasLength(1));
+      expect(results.first.storeName, 'Kiwi');
+    });
+
+    test('handles a product with no weight or price, kept when its store is recognized', () async {
+      final client = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'data': [
+              {'name': 'Ukjent produkt', 'brand': null, 'current_price': null, 'store': {'name': 'Meny'}},
             ],
           }),
           200,
@@ -56,9 +98,25 @@ void main() {
 
       final results = await service.search('ukjent');
 
+      expect(results, hasLength(1));
       expect(results.first.quantity, isNull);
-      expect(results.first.storeName, isNull);
       expect(results.first.price, isNull);
+    });
+
+    test('excludes a product with no store info at all', () async {
+      final client = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'data': [
+              {'name': 'Uten butikk', 'current_price': 10},
+            ],
+          }),
+          200,
+        );
+      });
+      final service = KassalappService(client: client, apiKey: 'test-key');
+
+      expect(await service.search('uten butikk'), isEmpty);
     });
 
     test('throws on a non-200 response', () async {
