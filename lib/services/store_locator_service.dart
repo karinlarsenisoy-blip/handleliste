@@ -6,21 +6,25 @@ import '../models/store.dart';
 import '../models/store_location.dart';
 
 /// Finds real, physical grocery store branches near a location, using
-/// OpenStreetMap's free Overpass API — no key required, unlike Google
-/// Places or Kassalapp's store data. Deliberately not Kassalapp: see the
-/// project's data-sourcing notes on why that dependency stays narrowly
+/// OpenStreetMap data via a small Cloud Function proxy (`nearbyStores`) that
+/// queries the free Overpass API on our behalf — no key required, unlike
+/// Google Places or Kassalapp's store data. Deliberately not Kassalapp: see
+/// the project's data-sourcing notes on why that dependency stays narrowly
 /// scoped to product/price lookups only, not something core features like
 /// this lean on further.
 ///
-/// Overpass is free public infrastructure with no SLA — it can be slow,
-/// rate-limited, or reject requests from certain networks (observed: a
-/// blanket 406 from a cloud/datacenter IP during development). Failures are
-/// swallowed and return an empty list rather than throwing, same as the
-/// other third-party-backed services in this app.
+/// Calling Overpass directly from the browser doesn't work: its main
+/// instance sends no CORS header for browser requests (confirmed via a
+/// `no-cors` probe — the request succeeds, the browser just refuses to hand
+/// back the response), and the handful of mirrors that do support CORS
+/// either have partial data coverage or are too slow/unreliable for a
+/// live UI. The proxy calls Overpass server-to-server, where CORS doesn't
+/// apply. Failures are swallowed and return an empty list rather than
+/// throwing, same as the other third-party-backed services in this app.
 class StoreLocatorService {
   StoreLocatorService({http.Client? client, String? baseUrl})
       : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? 'https://overpass-api.de/api/interpreter';
+        _baseUrl = baseUrl ?? 'https://handleliste-f1659.web.app/api/nearby-stores';
 
   final http.Client _client;
   final String _baseUrl;
@@ -31,15 +35,14 @@ class StoreLocatorService {
     double radiusMeters = 3000,
   }) async {
     final radius = radiusMeters.round();
-    final query = '[out:json][timeout:25];'
-        '(node["shop"="supermarket"](around:$radius,$latitude,$longitude);'
-        'node["shop"="convenience"](around:$radius,$latitude,$longitude););'
-        'out body;';
+    final uri = Uri.parse(_baseUrl).replace(queryParameters: {
+      'lat': '$latitude',
+      'lon': '$longitude',
+      'radius': '$radius',
+    });
 
     try {
-      final response = await _client
-          .post(Uri.parse(_baseUrl), body: {'data': query})
-          .timeout(const Duration(seconds: 15));
+      final response = await _client.get(uri).timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) return [];
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;

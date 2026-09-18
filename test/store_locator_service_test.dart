@@ -9,8 +9,11 @@ void main() {
   group('StoreLocatorService', () {
     test('parses known grocery chain branches with brand, name and address', () async {
       final client = MockClient((request) async {
-        expect(request.method, 'POST');
-        expect(request.url.toString(), 'https://overpass-api.de/api/interpreter');
+        expect(request.method, 'GET');
+        expect(
+          request.url.toString(),
+          'https://handleliste-f1659.web.app/api/nearby-stores?lat=59.9139&lon=10.7522&radius=3000',
+        );
         return http.Response(
           jsonEncode({
             'elements': [

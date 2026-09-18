@@ -139,7 +139,9 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
     final itemNames = <String>[];
     for (final category in categories) {
       final items = await widget.itemService.watchItems(widget.uid, widget.listId, category.id).first;
-      itemNames.addAll(items.map((i) => i.name));
+      // Already-checked items are already in the cart — a "which store(s)
+      // should I visit" plan only makes sense for what's still left to buy.
+      itemNames.addAll(items.where((i) => !i.isChecked).map((i) => i.name));
     }
     final analysis = await widget.cheapestStoreService.analyze(itemNames);
     return _Loaded(itemNames, analysis);
@@ -287,6 +289,28 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
     );
   }
 
+  /// Stores to visit, in the order to actually drive/walk them: nearest
+  /// known branch first. Stores whose branch distance we don't know (no
+  /// location permission yet, or no matching branch nearby) sort last,
+  /// keeping their relative order — better than guessing where they'd fit.
+  List<MapEntry<String, List<ItemAssignment>>> _stopsInVisitOrder(
+    Map<String, List<ItemAssignment>> byStore,
+  ) {
+    final entries = byStore.entries.toList();
+    if (_position == null) return entries;
+
+    final distances = {for (final key in byStore.keys) key: _nearestBranch(key)?.distanceMeters};
+    entries.sort((a, b) {
+      final distanceA = distances[a.key];
+      final distanceB = distances[b.key];
+      if (distanceA == null && distanceB == null) return 0;
+      if (distanceA == null) return 1;
+      if (distanceB == null) return -1;
+      return distanceA.compareTo(distanceB);
+    });
+    return entries;
+  }
+
   Widget _buildSplitTab(ShoppingSplit split, List<StoreTotal> singleStoreTotals) {
     if (split.assignments.isEmpty) {
       return const Padding(
@@ -300,7 +324,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
       );
     }
 
-    final byStore = split.assignmentsByStore;
+    final stops = _stopsInVisitOrder(split.assignmentsByStore);
     final savings = _computeSavings(split, singleStoreTotals);
     final savingsItemsLabel = savings == null
         ? ''
@@ -338,35 +362,65 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
           ),
           const SizedBox(height: 8),
         ],
-        for (final entry in byStore.entries) ...[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(entry.key, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  for (final assignment in entry.value)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(child: Text(assignment.itemName)),
-                          Text(
-                            _freshnessLabel(assignment.lastObservedAt),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(width: 8),
-                          Text('${assignment.price.toStringAsFixed(2)} kr'),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
+        if (_position != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Rekkefølgen under er sortert etter avstand fra deg — nærmeste stopp først.',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
+        for (var stopIndex = 0; stopIndex < stops.length; stopIndex++) ...[
+          () {
+            final entry = stops[stopIndex];
+            final nearest = _nearestBranch(entry.key);
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (_position != null) ...[
+                          CircleAvatar(radius: 12, child: Text('${stopIndex + 1}')),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(entry.key, style: Theme.of(context).textTheme.titleMedium),
+                      ],
+                    ),
+                    if (_position != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          nearest == null
+                              ? 'Ingen kjent butikk i nærheten'
+                              : '${(nearest.distanceMeters / 1000).toStringAsFixed(1)} km · ${nearest.location.name}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    const SizedBox(height: 4),
+                    for (final assignment in entry.value)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(child: Text(assignment.itemName)),
+                            Text(
+                              _freshnessLabel(assignment.lastObservedAt),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(width: 8),
+                            Text('${assignment.price.toStringAsFixed(2)} kr'),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }(),
           const SizedBox(height: 8),
         ],
         if (split.unmatchedItems.isNotEmpty) ...[
@@ -379,7 +433,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Totalt · ${byStore.length} butikker', style: Theme.of(context).textTheme.titleMedium),
+            Text('Totalt · ${stops.length} butikker', style: Theme.of(context).textTheme.titleMedium),
             Text('${split.total.toStringAsFixed(2)} kr', style: Theme.of(context).textTheme.titleMedium),
           ],
         ),
@@ -397,7 +451,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Én butikk'),
-              Tab(text: 'Flere butikker'),
+              Tab(text: 'Handletur'),
             ],
           ),
         ),

@@ -109,6 +109,10 @@ match /users/{userId}/lists/{listId} {
 
 **Sletting av konto (`AccountService`):** Kontomenyen (personikonet øverst til høyre) har "Slett konto". Dette henter og sletter *all* Firestore-data for brukeren, deretter selve Firebase Auth-kontoen — samme "fersk innlogging kreves"-flyt som i To-do-appen.
 
+## Infrastruktur
+
+- Firebase-prosjektet ble oppgradert fra gratisplanen (Spark) til betal-etter-bruk-planen (Blaze) 2026-09-18, for å kunne kjøre en Cloud Function (`functions/nearbyStores`) som proxyer butikksøk mot Overpass-API-et. Årsak: Overpass' hovedserver støtter ikke CORS for nettleserkall, så butikkposisjoner måtte hentes server-til-server i stedet for direkte fra appen — se `lib/services/store_locator_service.dart`. Forventet reell kostnad er 0 kr (bruken ligger godt innenfor Googles gratiskvote), men planen krever et registrert betalingskort på kontoen.
+
 ## Kjent utgangspunkt / neste steg
 
 - Firebase-prosjektet `handleliste-f1659` fantes fra før (opprettet for et tidligere FlutterFlow-forsøk, se `Handleliste dokumentasjon.docx`) og er nå koblet til denne Flutter-kodebasen med FlutterFire CLI (web, Android, iOS).

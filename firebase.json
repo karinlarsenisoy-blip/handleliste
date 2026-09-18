@@ -24,6 +24,13 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs22"
+    }
+  ],
   "hosting": {
     "site": "handleliste-f1659",
     "public": "build/web",
@@ -33,6 +40,13 @@
       "**/node_modules/**"
     ],
     "rewrites": [
+      {
+        "source": "/api/nearby-stores",
+        "function": {
+          "functionId": "nearbyStores",
+          "region": "europe-west1"
+        }
+      },
       {
         "source": "**",
         "destination": "/index.html"

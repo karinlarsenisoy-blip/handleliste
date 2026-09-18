@@ -55,3 +55,7 @@ config/kassalapp.json
 
 # Reference screenshots dropped in during chat, not project source
 /Sesum/
+
+# Cloud Functions dependencies — reinstalled via `npm install --prefix functions`
+functions/node_modules/
+functions/.runtimeconfig.json
