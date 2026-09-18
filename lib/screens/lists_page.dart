@@ -6,6 +6,7 @@ import '../services/item_service.dart';
 import '../services/list_service.dart';
 import 'categories_page.dart';
 import 'cheapest_store_screen.dart';
+import 'favorites_screen.dart';
 import 'profile_screen.dart';
 
 /// Top-level screen: a row of tabs ("Ukehandel", "Bursdag", ...), each
@@ -179,6 +180,14 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
                     );
                   },
                 ),
+              IconButton(
+                icon: const Icon(Icons.star_outline),
+                tooltip: 'Favoritter',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => FavoritesScreen(uid: widget.uid)),
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.account_circle),
                 tooltip: 'Profil',
