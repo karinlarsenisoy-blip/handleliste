@@ -30,7 +30,7 @@ class ActiveTripScreen extends StatefulWidget {
   final String listId;
   final String listName;
   final List<MapEntry<String, List<ItemAssignment>>> stops;
-  final Map<String, ({Item item, String categoryId})> itemLookup;
+  final Map<String, ({Item item, String categoryId, String categoryName})> itemLookup;
   final ItemService itemService;
 
   @override

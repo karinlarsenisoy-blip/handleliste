@@ -10,6 +10,7 @@ import '../services/cheapest_store_service.dart';
 import '../services/item_service.dart';
 import '../services/location_service.dart';
 import '../services/store_locator_service.dart';
+import '../utils/aisle_order.dart';
 import '../utils/distance.dart';
 import 'active_trip_screen.dart';
 
@@ -69,11 +70,13 @@ class _Loaded {
   final List<String> itemNames;
   final CheapestStoreAnalysis analysis;
 
-  /// Where each item name actually lives (which category), so a confirmed
-  /// trip can check items off for real via [ItemService.toggleItem] instead
-  /// of just toggling something on screen that forgets itself when you
-  /// leave the page.
-  final Map<String, ({Item item, String categoryId})> itemLookup;
+  /// Where each item name actually lives (which category, and that
+  /// category's name), so a confirmed trip can check items off for real via
+  /// [ItemService.toggleItem] instead of just toggling something on screen
+  /// that forgets itself when you leave the page — and so items can be
+  /// sorted by store-aisle order using the category name (see
+  /// [aisleRank]).
+  final Map<String, ({Item item, String categoryId, String categoryName})> itemLookup;
 }
 
 class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
@@ -170,7 +173,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
   Future<_Loaded> _load() async {
     final categories = await widget.categoryService.watchCategories(widget.uid, widget.listId).first;
     final itemNames = <String>[];
-    final itemLookup = <String, ({Item item, String categoryId})>{};
+    final itemLookup = <String, ({Item item, String categoryId, String categoryName})>{};
     for (final category in categories) {
       final items = await widget.itemService.watchItems(widget.uid, widget.listId, category.id).first;
       // Deliberately NOT filtering by isChecked: that only means "in the
@@ -180,7 +183,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
       // uncertain signal into price planning would be misleading.
       for (final item in items) {
         itemNames.add(item.name);
-        itemLookup[item.name] = (item: item, categoryId: category.id);
+        itemLookup[item.name] = (item: item, categoryId: category.id, categoryName: category.name);
       }
     }
     final analysis = await widget.cheapestStoreService.analyze(itemNames);
@@ -395,7 +398,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
     List<String> itemNames,
     ShoppingSplit fullSplit,
     List<StoreTotal> singleStoreTotals,
-    Map<String, ({Item item, String categoryId})> itemLookup,
+    Map<String, ({Item item, String categoryId, String categoryName})> itemLookup,
   ) {
     if (fullSplit.assignments.isEmpty) {
       return const Padding(
@@ -421,7 +424,17 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
         ? fullSplit.assignmentsByStore.keys.where((name) => !reachableStoreNames.contains(name)).toList()
         : const <String>[];
 
+    // Sorted by store-visit order first, then each stop's own items sorted
+    // by where they'd typically be in the store — walk it once instead of
+    // criss-crossing between aisles.
     final stops = _stopsInVisitOrder(split.assignmentsByStore);
+    for (final stop in stops) {
+      stop.value.sort((a, b) {
+        final rankA = aisleRank(itemLookup[a.itemName]?.categoryName);
+        final rankB = aisleRank(itemLookup[b.itemName]?.categoryName);
+        return rankA.compareTo(rankB);
+      });
+    }
     final savings = _computeSavings(split, singleStoreTotals);
     final savingsItemsLabel = savings == null
         ? ''

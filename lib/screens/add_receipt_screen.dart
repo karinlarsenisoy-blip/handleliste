@@ -16,11 +16,22 @@ import '../widgets/product_name_field.dart';
 /// receipt, just a scrolling purchase list you copy) or by photographing a
 /// physical/app receipt and running on-device OCR (Android/iOS only). Both
 /// paths feed the same [ReceiptParser] and the same editable review list —
-/// the parser is a best guess, never trusted blindly.
+/// the parser is a best guess, never trusted blindly, so every field stays
+/// editable to fix a misparse.
+///
+/// Deliberately does NOT let a user add a row from nothing: every item on a
+/// saved receipt must trace back to an actual receipt (photographed or
+/// pasted) — a freely-typed name and price is an unverified source that
+/// could pollute the shared price database with mistakes or made-up
+/// numbers. Editing a *parsed* row to fix a misrecognized name/price is
+/// fine; inventing a new one isn't.
 ///
 /// Saving always keeps the receipt in the user's own private history.
 /// Whether its prices also get contributed anonymously to the shared price
 /// database is the user's explicit, per-receipt choice (see [_shareAnonymously]).
+/// Before saving, [ReceiptService.isDuplicateOf] checks whether this looks
+/// like the same shopping trip as one already saved (same store, day, and
+/// items) so an accidental re-save can't count a trip's prices twice.
 class AddReceiptScreen extends StatefulWidget {
   AddReceiptScreen({
     super.key,
@@ -90,7 +101,9 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
     });
     if (parsed.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fant ingen varelinjer — legg til varer manuelt under.')),
+        const SnackBar(
+          content: Text('Fant ingen varelinjer — prøv å lime inn teksten på nytt, eller ta et nytt bilde.'),
+        ),
       );
     }
   }
@@ -113,10 +126,6 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
     } finally {
       if (mounted) setState(() => _isScanning = false);
     }
-  }
-
-  void _addEmptyRow() {
-    setState(() => _items.add(_EditableItem(name: '', price: 0)));
   }
 
   void _removeRow(int index) {
@@ -163,6 +172,20 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
       items: items,
       rawText: _rawTextController.text.trim().isEmpty ? null : _rawTextController.text.trim(),
     );
+
+    if (await widget.receiptService.isDuplicateOf(widget.uid, receipt)) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+            'Dette ser ut som en kvittering du allerede har lagt inn — samme butikk, dato og varer. '
+            'Ble ikke lagret på nytt.',
+          ),
+        ));
+      }
+      return;
+    }
+
     await widget.receiptService.addReceipt(widget.uid, receipt);
 
     if (_shareAnonymously) {
@@ -311,14 +334,6 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
                 ],
               ),
             ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _addEmptyRow,
-              icon: const Icon(Icons.add),
-              label: const Text('Legg til vare'),
-            ),
-          ),
           const Divider(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
