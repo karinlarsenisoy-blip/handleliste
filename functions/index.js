@@ -23,46 +23,50 @@ function buildQuery(lat, lon, radius) {
   return `[out:json][timeout:20];(${clauses});out body;`;
 }
 
-async function fetchFromOverpass(query) {
-  let lastError;
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          // Overpass instances rate-limit or reject requests without a
-          // descriptive User-Agent (confirmed via kumi.systems' own error
-          // message asking for exactly this) — this follows the Overpass
-          // API usage policy's etiquette guidance.
-          'User-Agent': 'HandelisteApp/1.0 (+https://handleliste-f1659.web.app)',
-        },
-        body: 'data=' + encodeURIComponent(query),
-        // Overpass is free community infra with no SLA — plain slowness
-        // (not just outright errors) is normal and shouldn't be treated as
-        // "no stores found". 15s per endpoint (worst case 30s for both,
-        // comfortably inside the function's own 45s budget below) trades a
-        // slower loading state for far fewer false negatives.
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!response.ok) {
-        const bodySnippet = (await response.text().catch(() => '')).slice(0, 300);
-        logger.error('Overpass endpoint returned non-OK status', {
-          endpoint,
-          status: response.status,
-          statusText: response.statusText,
-          bodySnippet,
-        });
-        lastError = new Error(`${endpoint} responded ${response.status}`);
-        continue;
-      }
-      return await response.json();
-    } catch (err) {
-      lastError = err;
-      logger.error('Overpass endpoint threw', {endpoint, error: String(err), stack: err && err.stack});
-    }
+async function fetchOne(endpoint, query, timeoutMs) {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      // Overpass instances rate-limit or reject requests without a
+      // descriptive User-Agent (confirmed via kumi.systems' own error
+      // message asking for exactly this) — this follows the Overpass
+      // API usage policy's etiquette guidance.
+      'User-Agent': 'HandelisteApp/1.0 (+https://handleliste-f1659.web.app)',
+    },
+    body: 'data=' + encodeURIComponent(query),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!response.ok) {
+    const bodySnippet = (await response.text().catch(() => '')).slice(0, 300);
+    logger.error('Overpass endpoint returned non-OK status', {
+      endpoint,
+      status: response.status,
+      statusText: response.statusText,
+      bodySnippet,
+    });
+    throw new Error(`${endpoint} responded ${response.status}`);
   }
-  throw lastError ?? new Error('No Overpass endpoints configured');
+  return response.json();
+}
+
+/// Races every Overpass endpoint at once and takes whichever answers first,
+/// instead of trying them one after another. Overpass is free community
+/// infra with no SLA — plain slowness (not just outright errors) is normal
+/// — so waiting out a slow instance when a working one already answered
+/// would just be wasted latency. Only fails if every endpoint does.
+async function fetchFromOverpass(query) {
+  const attempts = OVERPASS_ENDPOINTS.map((endpoint) =>
+    fetchOne(endpoint, query, 10000).catch((err) => {
+      logger.error('Overpass endpoint failed', {endpoint, error: String(err)});
+      throw err;
+    }),
+  );
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    throw new Error('All Overpass endpoints failed');
+  }
 }
 
 /**
@@ -73,7 +77,7 @@ async function fetchFromOverpass(query) {
  * lives.
  */
 exports.nearbyStores = onRequest(
-  {region: 'europe-west1', cors: true, timeoutSeconds: 45, memory: '256MiB'},
+  {region: 'europe-west1', cors: true, timeoutSeconds: 20, memory: '256MiB'},
   async (req, res) => {
     const lat = Number(req.query.lat);
     const lon = Number(req.query.lon);

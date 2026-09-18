@@ -58,12 +58,11 @@ class StoreLocatorService {
     });
 
     try {
-      // Longer than the proxy's own worst case (two 15s Overpass attempts
-      // plus cold-start/network overhead) so a slow-but-working response
-      // isn't mistaken for a failure — that mismatch was the cause of
-      // "Fant ingen butikker" showing up even when the proxy would have
-      // succeeded a few seconds later.
-      final response = await _client.get(uri).timeout(const Duration(seconds: 50));
+      // The proxy now races both Overpass endpoints at once (worst case
+      // ~10s if both fail) rather than trying them one after another, so
+      // this only needs enough margin for that plus cold-start/network
+      // overhead — not the ~30-60s a sequential fallback needed.
+      final response = await _client.get(uri).timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) return null;
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
