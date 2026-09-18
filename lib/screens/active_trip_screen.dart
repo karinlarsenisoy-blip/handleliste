@@ -85,20 +85,19 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
               ),
             ),
             for (final assignment in widget.stops[stopIndex].value)
-              CheckboxListTile(
-                dense: true,
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                value: _checkedNames.contains(assignment.itemName),
-                onChanged: (_) => _toggle(assignment.itemName),
-                title: Text(
-                  assignment.itemName,
-                  style: _checkedNames.contains(assignment.itemName)
-                      ? TextStyle(decoration: TextDecoration.lineThrough, color: Theme.of(context).disabledColor)
-                      : null,
-                ),
-                secondary: Text('${assignment.price.toStringAsFixed(2)} kr'),
-              ),
+              Builder(builder: (context) {
+                final isChecked = _checkedNames.contains(assignment.itemName);
+                final style = isChecked
+                    ? TextStyle(decoration: TextDecoration.lineThrough, color: Theme.of(context).disabledColor)
+                    : null;
+                return ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  onTap: () => _toggle(assignment.itemName),
+                  title: Text(assignment.itemName, style: style),
+                  trailing: Text('${assignment.price.toStringAsFixed(2)} kr', style: style),
+                );
+              }),
           ],
         ],
       ),

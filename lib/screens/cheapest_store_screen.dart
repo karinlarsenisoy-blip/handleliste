@@ -173,9 +173,12 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
     final itemLookup = <String, ({Item item, String categoryId})>{};
     for (final category in categories) {
       final items = await widget.itemService.watchItems(widget.uid, widget.listId, category.id).first;
-      // Already-checked items are already in the cart — a "which store(s)
-      // should I visit" plan only makes sense for what's still left to buy.
-      for (final item in items.where((i) => !i.isChecked)) {
+      // Deliberately NOT filtering by isChecked: that only means "in the
+      // physical cart right now" (see ActiveTripScreen) — it's not a
+      // confirmation that the item was actually bought, let alone bought at
+      // the store/price this analysis would assign it to. Mixing that
+      // uncertain signal into price planning would be misleading.
+      for (final item in items) {
         itemNames.add(item.name);
         itemLookup[item.name] = (item: item, categoryId: category.id);
       }
