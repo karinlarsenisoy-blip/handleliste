@@ -29,11 +29,27 @@ class StoreLocatorService {
   final http.Client _client;
   final String _baseUrl;
 
+  /// Tries [_fetchOnce] up to twice — Overpass is free, best-effort
+  /// infrastructure with no SLA, and observed firsthand to sometimes fail
+  /// outright (timeout/non-200) only to succeed in well under a second on
+  /// an immediate retry. One retry turns most of that transient flakiness
+  /// into a slightly slower success instead of a false "no stores nearby".
   Future<List<StoreLocation>> findNearby(
     double latitude,
     double longitude, {
     double radiusMeters = 3000,
   }) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final result = await _fetchOnce(latitude, longitude, radiusMeters);
+      if (result != null) return result;
+    }
+    return [];
+  }
+
+  /// Returns null if this attempt failed outright (network error, timeout,
+  /// non-200) — as opposed to a genuinely empty result, which is a real
+  /// list (possibly empty) and shouldn't trigger a retry.
+  Future<List<StoreLocation>?> _fetchOnce(double latitude, double longitude, double radiusMeters) async {
     final radius = radiusMeters.round();
     final uri = Uri.parse(_baseUrl).replace(queryParameters: {
       'lat': '$latitude',
@@ -42,8 +58,13 @@ class StoreLocatorService {
     });
 
     try {
-      final response = await _client.get(uri).timeout(const Duration(seconds: 20));
-      if (response.statusCode != 200) return [];
+      // Longer than the proxy's own worst case (two 15s Overpass attempts
+      // plus cold-start/network overhead) so a slow-but-working response
+      // isn't mistaken for a failure — that mismatch was the cause of
+      // "Fant ingen butikker" showing up even when the proxy would have
+      // succeeded a few seconds later.
+      final response = await _client.get(uri).timeout(const Duration(seconds: 50));
+      if (response.statusCode != 200) return null;
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final elements = (data['elements'] as List<dynamic>?) ?? [];
@@ -67,7 +88,7 @@ class StoreLocatorService {
       }
       return locations;
     } catch (_) {
-      return [];
+      return null;
     }
   }
 

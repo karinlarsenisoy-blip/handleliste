@@ -38,7 +38,12 @@ async function fetchFromOverpass(query) {
           'User-Agent': 'HandelisteApp/1.0 (+https://handleliste-f1659.web.app)',
         },
         body: 'data=' + encodeURIComponent(query),
-        signal: AbortSignal.timeout(20000),
+        // Overpass is free community infra with no SLA — plain slowness
+        // (not just outright errors) is normal and shouldn't be treated as
+        // "no stores found". 15s per endpoint (worst case 30s for both,
+        // comfortably inside the function's own 45s budget below) trades a
+        // slower loading state for far fewer false negatives.
+        signal: AbortSignal.timeout(15000),
       });
       if (!response.ok) {
         const bodySnippet = (await response.text().catch(() => '')).slice(0, 300);
@@ -68,7 +73,7 @@ async function fetchFromOverpass(query) {
  * lives.
  */
 exports.nearbyStores = onRequest(
-  {region: 'europe-west1', cors: true, timeoutSeconds: 30, memory: '256MiB'},
+  {region: 'europe-west1', cors: true, timeoutSeconds: 45, memory: '256MiB'},
   async (req, res) => {
     const lat = Number(req.query.lat);
     const lon = Number(req.query.lon);

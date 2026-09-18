@@ -85,11 +85,16 @@ class CheapestStoreService {
 
   /// Fetches prices for every item exactly once, then builds both the
   /// single-store ranking and the multi-store split from that same data.
+  ///
+  /// Every item's lookup runs concurrently — each one is an independent
+  /// Firestore query plus a live Kassalapp HTTP call, so awaiting them one
+  /// at a time in a loop would make a 12-item list take roughly 12x as
+  /// long as it needs to for no benefit.
   Future<CheapestStoreAnalysis> analyze(List<String> itemNames) async {
-    final pricesByItem = <String, List<_PriceEntry>>{};
-    for (final itemName in itemNames) {
-      pricesByItem[itemName] = await _pricesForItem(itemName);
-    }
+    final entries = await Future.wait(
+      itemNames.map((itemName) async => MapEntry(itemName, await _pricesForItem(itemName))),
+    );
+    final pricesByItem = Map<String, List<_PriceEntry>>.fromEntries(entries);
 
     return CheapestStoreAnalysis(
       storeTotals: _buildStoreTotals(itemNames, pricesByItem),

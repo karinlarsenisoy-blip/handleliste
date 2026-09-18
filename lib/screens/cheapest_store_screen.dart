@@ -626,7 +626,9 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Viser avstand fra deg til nærmeste butikk av hvert slag innenfor valgt søkeradius',
+                  _isLoadingLocation
+                      ? 'Søker etter butikker i nærheten — kan ta et lite minutt, Overpass-tjenesten vi bruker er ikke alltid rask.'
+                      : 'Viser avstand fra deg til nærmeste butikk av hvert slag innenfor valgt søkeradius',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
