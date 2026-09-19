@@ -3,16 +3,19 @@ import 'package:flutter/material.dart';
 import '../models/cheapest_store_analysis.dart';
 import '../models/item.dart';
 import '../models/shopping_split.dart';
+import '../models/store_layout.dart';
 import '../models/store_location.dart';
 import '../models/store_total.dart';
 import '../services/category_service.dart';
 import '../services/cheapest_store_service.dart';
 import '../services/item_service.dart';
 import '../services/location_service.dart';
+import '../services/store_layout_service.dart';
 import '../services/store_locator_service.dart';
 import '../utils/aisle_order.dart';
 import '../utils/distance.dart';
 import 'active_trip_screen.dart';
+import 'map_store_layout_screen.dart';
 
 /// Shows two ways to buy everything on one shopping list as cheaply as
 /// possible: pick a single store to visit, or split the list across
@@ -35,11 +38,13 @@ class CheapestStoreScreen extends StatefulWidget {
     CheapestStoreService? cheapestStoreService,
     LocationService? locationService,
     StoreLocatorService? storeLocatorService,
+    StoreLayoutService? storeLayoutService,
   })  : categoryService = categoryService ?? CategoryService(),
         itemService = itemService ?? ItemService(),
         cheapestStoreService = cheapestStoreService ?? CheapestStoreService(),
         locationService = locationService ?? LocationService(),
-        storeLocatorService = storeLocatorService ?? StoreLocatorService();
+        storeLocatorService = storeLocatorService ?? StoreLocatorService(),
+        storeLayoutService = storeLayoutService ?? StoreLayoutService();
 
   final String uid;
   final String listId;
@@ -49,6 +54,7 @@ class CheapestStoreScreen extends StatefulWidget {
   final CheapestStoreService cheapestStoreService;
   final LocationService locationService;
   final StoreLocatorService storeLocatorService;
+  final StoreLayoutService storeLayoutService;
 
   @override
   State<CheapestStoreScreen> createState() => _CheapestStoreScreenState();
@@ -86,6 +92,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
 
   ({double latitude, double longitude})? _position;
   List<StoreLocation> _nearbyStores = [];
+  Map<String, StoreLayout> _layoutsByBranchId = {};
   bool _isLoadingLocation = false;
   String? _locationMessage;
   int _radiusMeters = 3000;
@@ -138,6 +145,11 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
           ? 'Fant ingen butikker i nærheten akkurat nå (eller kunne ikke hente butikkposisjoner).'
           : null;
     });
+
+    // Best-effort — a missing mapping just means the generic aisle-order
+    // fallback keeps being used for that branch, nothing breaks.
+    final layouts = await widget.storeLayoutService.getLayouts(nearby.map((s) => s.branchId));
+    if (mounted) setState(() => _layoutsByBranchId = layouts);
   }
 
   void _onRadiusChanged(int? meters) {
@@ -429,9 +441,15 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
     // criss-crossing between aisles.
     final stops = _stopsInVisitOrder(split.assignmentsByStore);
     for (final stop in stops) {
+      // A specific branch's crowdsourced layout (see MapStoreLayoutScreen)
+      // overrides the generic aisle-order fallback when one exists for the
+      // branch we'd actually visit for this store.
+      final layout = _layoutsByBranchId[_nearestBranch(stop.key)?.location.branchId];
       stop.value.sort((a, b) {
-        final rankA = aisleRank(itemLookup[a.itemName]?.categoryName);
-        final rankB = aisleRank(itemLookup[b.itemName]?.categoryName);
+        final categoryA = itemLookup[a.itemName]?.categoryName;
+        final categoryB = itemLookup[b.itemName]?.categoryName;
+        final rankA = layout != null && categoryA != null ? layout.rankOf(categoryA) : aisleRank(categoryA);
+        final rankB = layout != null && categoryB != null ? layout.rankOf(categoryB) : aisleRank(categoryB);
         return rankA.compareTo(rankB);
       });
     }
@@ -522,6 +540,34 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
                               ? 'Ingen kjent butikk i nærheten'
                               : '${(nearest.distanceMeters / 1000).toStringAsFixed(1)} km · ${nearest.location.name}',
                           style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    if (nearest != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                          icon: const Icon(Icons.map_outlined, size: 16),
+                          label: Text(
+                            _layoutsByBranchId.containsKey(nearest.location.branchId)
+                                ? 'Oppdater butikkoppsett'
+                                : 'Kartlegg butikk',
+                          ),
+                          onPressed: () async {
+                            final saved = await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MapStoreLayoutScreen(
+                                  branchId: nearest.location.branchId,
+                                  branchLabel: nearest.location.name,
+                                  chainName: entry.key,
+                                  categoryNames: itemLookup.values.map((v) => v.categoryName).toSet().toList(),
+                                  storeLayoutService: widget.storeLayoutService,
+                                ),
+                              ),
+                            );
+                            if (saved == true) _refreshNearbyStores();
+                          },
                         ),
                       ),
                     const SizedBox(height: 4),

@@ -18,6 +18,7 @@ void main() {
           jsonEncode({
             'elements': [
               {
+                'id': 123456789,
                 'lat': 59.914,
                 'lon': 10.752,
                 'tags': {
@@ -39,6 +40,7 @@ void main() {
       final results = await service.findNearby(59.9139, 10.7522);
 
       expect(results, hasLength(1));
+      expect(results.first.branchId, 'osm-123456789');
       expect(results.first.chainName, 'Kiwi');
       expect(results.first.name, 'Kiwi Grünerløkka');
       expect(results.first.latitude, 59.914);
@@ -52,6 +54,7 @@ void main() {
           jsonEncode({
             'elements': [
               {
+                'id': 1,
                 'lat': 59.9,
                 'lon': 10.7,
                 'tags': {'shop': 'supermarket', 'name': 'Rema 1000'},
@@ -74,11 +77,13 @@ void main() {
           jsonEncode({
             'elements': [
               {
+                'id': 1,
                 'lat': 59.9,
                 'lon': 10.7,
                 'tags': {'shop': 'supermarket', 'name': 'En helt ukjent kiosk'},
               },
               {
+                'id': 2,
                 'lat': 59.91,
                 'lon': 10.71,
                 'tags': {'shop': 'supermarket', 'brand': 'Kiwi'},
@@ -96,18 +101,28 @@ void main() {
       expect(results.single.chainName, 'Kiwi');
     });
 
-    test('skips elements missing coordinates or any name', () async {
+    test('skips elements missing coordinates, an id, or any name', () async {
       final client = MockClient((request) async {
         return http.Response(
           jsonEncode({
             'elements': [
               {
+                'id': 1,
                 'tags': {'shop': 'supermarket', 'brand': 'Kiwi'},
               },
               {
+                'id': 2,
                 'lat': 59.9,
                 'lon': 10.7,
                 'tags': <String, dynamic>{},
+              },
+              {
+                // No 'id' at all — can't be attached to a stable branch, so
+                // it's skipped too rather than risking a store-layout
+                // mapping getting attached to the wrong branch later.
+                'lat': 59.9,
+                'lon': 10.7,
+                'tags': {'shop': 'supermarket', 'brand': 'Kiwi'},
               },
             ],
           }),

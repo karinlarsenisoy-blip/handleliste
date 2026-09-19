@@ -74,10 +74,12 @@ class StoreLocatorService {
         final rawName = (tags['brand'] as String?) ?? (tags['name'] as String?);
         final lat = element['lat'] as num?;
         final lon = element['lon'] as num?;
-        if (rawName == null || lat == null || lon == null) continue;
+        final osmId = element['id'] as num?;
+        if (rawName == null || lat == null || lon == null || osmId == null) continue;
         if (!isKnownGroceryStoreName(rawName)) continue;
 
         locations.add(StoreLocation(
+          branchId: 'osm-$osmId',
           chainName: canonicalStoreName(rawName),
           name: (tags['name'] as String?) ?? canonicalStoreName(rawName),
           latitude: lat.toDouble(),

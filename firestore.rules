@@ -17,6 +17,10 @@ service cloud.firestore {
       return price is number && price > 0 && price < 100000;
     }
 
+    function isValidCategoryOrder(order) {
+      return order is list && order.size() <= 50;
+    }
+
     match /users/{userId}/lists/{listId} {
       allow read, delete: if isOwner(userId);
       allow create, update: if isOwner(userId) && isValidName(request.resource.data.name);
@@ -56,6 +60,17 @@ service cloud.firestore {
         && isValidName(request.resource.data.storeChainId)
         && isValidName(request.resource.data.itemName)
         && isValidPrice(request.resource.data.price);
+    }
+
+    // Crowdsourced per-branch store layouts — same shape as the price
+    // database: anonymous, shared, and "latest wins" (a later mapping
+    // overwrites an earlier one for the same branch, see
+    // StoreLayoutService.saveLayout).
+    match /storeLayouts/{branchId} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && isValidName(request.resource.data.chainName)
+        && isValidCategoryOrder(request.resource.data.categoryOrder);
     }
   }
 }
