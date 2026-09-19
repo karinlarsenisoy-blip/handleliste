@@ -12,6 +12,7 @@ import '../services/item_service.dart';
 import '../services/location_service.dart';
 import '../services/store_layout_service.dart';
 import '../services/store_locator_service.dart';
+import '../theme.dart';
 import '../utils/aisle_order.dart';
 import '../utils/distance.dart';
 import 'active_trip_screen.dart';
@@ -610,6 +611,13 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
         ),
         const SizedBox(height: 16),
         FilledButton.icon(
+          // Reserved accent color for the screen's one big decision moment
+          // — see AppTheme.savingsAccent's doc for why this isn't the
+          // default button color everywhere.
+          style: FilledButton.styleFrom(
+            backgroundColor: AppTheme.savingsAccent,
+            foregroundColor: AppTheme.onSavingsAccent,
+          ),
           icon: const Icon(Icons.check_circle_outline),
           label: const Text('Bekreft rute og start handletur'),
           onPressed: () => Navigator.push(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'screens/auth_gate.dart';
+import 'theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,7 +18,7 @@ class HandlelisteApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Handleliste',
-      theme: ThemeData(colorSchemeSeed: Colors.green, useMaterial3: true),
+      theme: AppTheme.light(),
       home: const AuthGate(),
     );
   }
