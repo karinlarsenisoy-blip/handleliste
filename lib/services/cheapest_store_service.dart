@@ -83,6 +83,14 @@ class CheapestStoreService {
     return results;
   }
 
+  /// Every store price we currently know for [itemName], cheapest first —
+  /// for a standalone "search one item, see where it's cheapest" lookup
+  /// (see HomeScreen), independent of any shopping list.
+  Future<List<({String storeName, num price, DateTime lastObservedAt})>> pricesForItem(String itemName) async {
+    final entries = await _pricesForItem(itemName);
+    return [...entries]..sort((a, b) => a.price.compareTo(b.price));
+  }
+
   /// Fetches prices for every item exactly once, then builds both the
   /// single-store ranking and the multi-store split from that same data.
   ///
