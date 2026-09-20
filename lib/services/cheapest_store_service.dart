@@ -2,6 +2,7 @@ import '../models/cheapest_store_analysis.dart';
 import '../models/shopping_split.dart';
 import '../models/store.dart';
 import '../models/store_total.dart';
+import '../utils/relevance_ranking.dart';
 import 'kassalapp_service.dart';
 import 'price_service.dart';
 
@@ -64,7 +65,12 @@ class CheapestStoreService {
 
     if (KassalappService.isConfigured) {
       try {
-        final suggestions = await _kassalappService.search(itemName);
+        // Kassalapp's raw order is unranked (see ProductSuggestionService),
+        // so without this re-sort the "first suggestion per store" pick
+        // below could just as easily land on an unrelated product that
+        // merely mentions [itemName] — same bug, same fix, different call
+        // site.
+        final suggestions = sortSuggestionsByRelevance(await _kassalappService.search(itemName), itemName);
         for (final suggestion in suggestions) {
           final rawStoreName = suggestion.storeName;
           final price = suggestion.price;

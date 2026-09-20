@@ -12,7 +12,7 @@ import '../models/receipt_item.dart';
 /// blindly.
 class ReceiptParser {
   static final RegExp _trailingPrice = RegExp(
-    r'(\d+(?:[.,]\d{1,2})?)\s*(?:kr|,-)?\s*$',
+    r'(-?\d+(?:[.,]\d{1,2})?)\s*(?:kr|,-)?\s*$',
     caseSensitive: false,
   );
   static final RegExp _quantityOnly = RegExp(r'^\d+([.,]\d+)?\s*(stk|kg|x)\b', caseSensitive: false);
@@ -58,6 +58,13 @@ class ReceiptParser {
 
       final price = num.tryParse(match.group(1)!.replaceAll(',', '.'));
       if (price == null) continue;
+      // A negative trailing amount is a discount or a bottle-deposit refund
+      // (e.g. "Rabatt -5,00", "Pant -2,00") — not a purchasable item, so it
+      // shouldn't become a fake line item worth +5,00 kr.
+      if (price < 0) {
+        pendingName = null;
+        continue;
+      }
 
       var name = line.substring(0, match.start).trim();
       if (name.isEmpty || _quantityOnly.hasMatch(name)) {

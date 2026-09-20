@@ -76,5 +76,19 @@ Takk for handelen!
       expect(items[0].name, 'Brød');
       expect(items[0].price, 32);
     });
+
+    test('skips a discount or bottle-deposit refund line instead of adding it as a positive-priced item', () {
+      const raw = '''
+Cola 1,5l                  32,90
+Rabatt                     -5,00
+Pant                       -2,00
+''';
+
+      final items = ReceiptParser.parse(raw);
+
+      expect(items, hasLength(1));
+      expect(items[0].name, 'Cola 1,5l');
+      expect(items[0].price, 32.90);
+    });
   });
 }
