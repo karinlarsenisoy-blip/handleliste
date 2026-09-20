@@ -62,10 +62,22 @@ class _SignInScreenState extends State<SignInScreen> {
       // Tells the browser/platform "the login just succeeded" — this is what
       // actually triggers the "Save password?" prompt in most browsers.
       TextInput.finishAutofillContext();
+      _closeIfPushed();
     } on FirebaseAuthException catch (e) {
       setState(() => _errorMessage = e.message ?? 'Noe gikk galt. Prøv igjen.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  /// When this screen was reached from a guest-gated screen (pushed on top
+  /// of the guest's HomeShell) rather than shown as AuthGate's own base
+  /// route, pop it after a successful sign-in so the caller's screen —
+  /// already rebuilt underneath with the new, non-anonymous uid — becomes
+  /// visible again. A no-op when this *is* the base route (nothing to pop).
+  void _closeIfPushed() {
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 
@@ -76,6 +88,7 @@ class _SignInScreenState extends State<SignInScreen> {
     });
     try {
       await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+      _closeIfPushed();
     } on FirebaseAuthException catch (e) {
       if (e.code == 'account-exists-with-different-credential') {
         setState(() => _errorMessage =

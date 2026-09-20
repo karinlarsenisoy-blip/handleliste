@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/cheapest_store_service.dart';
 import '../services/receipt_service.dart';
+import '../widgets/guest_gate.dart';
 import '../widgets/product_name_field.dart';
 import 'add_receipt_screen.dart';
 import 'profile_screen.dart';
@@ -18,12 +19,14 @@ class HomeScreen extends StatefulWidget {
   HomeScreen({
     super.key,
     required this.uid,
+    required this.isAnonymous,
     CheapestStoreService? cheapestStoreService,
     ReceiptService? receiptService,
   })  : cheapestStoreService = cheapestStoreService ?? CheapestStoreService(),
         receiptService = receiptService ?? ReceiptService();
 
   final String uid;
+  final bool isAnonymous;
   final CheapestStoreService cheapestStoreService;
   final ReceiptService receiptService;
 
@@ -66,6 +69,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _openOrGate(BuildContext context, {required String guestMessage, required WidgetBuilder builder}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: widget.isAnonymous ? (context) => GuestGateScreen(message: guestMessage) : builder,
+      ),
+    );
   }
 
   @override
@@ -121,11 +133,10 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.camera_alt_outlined),
               title: const Text('Skann en kvittering'),
               subtitle: const Text('Bidra anonymt til prisene alle ser'),
-              onTap: () => Navigator.push(
+              onTap: () => _openOrGate(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => AddReceiptScreen(uid: widget.uid, receiptService: widget.receiptService),
-                ),
+                guestMessage: 'skanne og lagre kvitteringer',
+                builder: (context) => AddReceiptScreen(uid: widget.uid, receiptService: widget.receiptService),
               ),
             ),
           ),
@@ -135,9 +146,10 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.mic_none),
               title: const Text('Si varenavn til en liste'),
               subtitle: const Text('Si varenavn ett og ett — fungerer i Chrome/Edge'),
-              onTap: () => Navigator.push(
+              onTap: () => _openOrGate(
                 context,
-                MaterialPageRoute(builder: (context) => VoiceListEntryScreen(uid: widget.uid)),
+                guestMessage: 'legge varer i en handleliste',
+                builder: (context) => VoiceListEntryScreen(uid: widget.uid),
               ),
             ),
           ),

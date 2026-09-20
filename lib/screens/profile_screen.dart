@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../services/account_service.dart';
 import '../services/test_data_seeder.dart';
+import 'sign_in_screen.dart';
 
 /// Standard account/profile functionality: display name, email (read-only),
 /// change password (via reset email), sign out, and account deletion
@@ -236,8 +237,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final email = FirebaseAuth.instance.currentUser?.email ?? '(ingen e-post)';
     final errorColor = Theme.of(context).colorScheme.error;
+
+    if (FirebaseAuth.instance.currentUser?.isAnonymous ?? false) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Profil')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.person_outline, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'Du bruker Handleliste som gjest — søk fungerer, men lister, kvitteringer '
+                  'og favoritter krever en konto for å bli lagret.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SignInScreen()),
+                  ),
+                  child: const Text('Opprett konto eller logg inn'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final email = FirebaseAuth.instance.currentUser?.email ?? '(ingen e-post)';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),
