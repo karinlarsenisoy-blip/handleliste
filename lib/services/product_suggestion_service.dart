@@ -34,18 +34,82 @@ class ProductSuggestionService {
   final KassalappService _kassalappService;
 
   Future<List<ProductSuggestion>> search(String query) async {
-    if (query.trim().isEmpty) return [];
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
 
     if (KassalappService.isConfigured) {
       try {
-        final results = await _kassalappService.search(query);
-        if (results.isNotEmpty) return results;
+        final results = await _kassalappService.search(trimmed);
+        if (results.isNotEmpty) return _sortByRelevance(results, trimmed);
       } catch (_) {
         // Fall through to Open Food Facts below.
       }
     }
 
-    return _searchOpenFoodFacts(query);
+    return _sortByRelevance(await _searchOpenFoodFacts(trimmed), trimmed);
+  }
+
+  /// Both Kassalapp and Open Food Facts return anything containing [query]
+  /// as a substring anywhere in the name, so searching "melk" surfaces
+  /// "Melkesjokolade" (milk chocolate) and "Havregrøt m/Melk" (oat
+  /// porridge made with milk) ahead of actual milk — confirmed directly
+  /// against Kassalapp's API: its own relevance order for "melk" has no
+  /// plain milk at all in the first 15 results. This re-ranks by where and
+  /// how [query] appears as a real word in the name, cheapest-first only
+  /// as a tiebreak within the same relevance tier (price was previously
+  /// the *primary* sort here, which is what let a 9,90 kr porridge outrank
+  /// actually-relevant, pricier milk).
+  List<ProductSuggestion> _sortByRelevance(List<ProductSuggestion> suggestions, String query) {
+    final scored = suggestions.map((s) => (suggestion: s, score: _relevanceScore(s.name, query))).toList()
+      ..sort((a, b) {
+        final byRelevance = a.score.compareTo(b.score);
+        if (byRelevance != 0) return byRelevance;
+        final priceA = a.suggestion.price;
+        final priceB = b.suggestion.price;
+        if (priceA == null && priceB == null) return 0;
+        if (priceA == null) return 1;
+        if (priceB == null) return -1;
+        return priceA.compareTo(priceB);
+      });
+    return scored.map((s) => s.suggestion).toList();
+  }
+
+  static final RegExp _wordSplitter = RegExp(r'[^a-zæøå]+');
+
+  /// Lower is more relevant. A word in [name] that equals, ends with, or is
+  /// a short variant (catching plurals like "epler" from "eple") of
+  /// [query] scores by its word position (earlier = better) — this also
+  /// naturally matches Norwegian compounds where the core noun is the
+  /// suffix, like "lettmelk" or "kokosmelk". A word that merely *starts*
+  /// with [query] but keeps going into unrelated territory ("melkesjoko
+  /// lade", "melkefri") scores much lower instead of counting as a real
+  /// match. A name where the query only appears right after "m/" or "med"
+  /// ("Havregrøt m/Melk" — milk as an ingredient of a *different*
+  /// product) is pushed down near the bottom on purpose.
+  int _relevanceScore(String name, String query) {
+    final normalizedQuery = query.toLowerCase();
+    if (normalizedQuery.isEmpty) return 0;
+    final lowerName = name.toLowerCase();
+
+    if (lowerName.contains('m/$normalizedQuery') || lowerName.contains('med $normalizedQuery')) {
+      return 1500;
+    }
+
+    final words = lowerName.split(_wordSplitter).where((w) => w.isNotEmpty).toList();
+    var weakScore = 2000;
+    for (var i = 0; i < words.length; i++) {
+      final word = words[i];
+      final isShortVariant = word.length <= normalizedQuery.length + 3;
+      final isStrongMatch = word == normalizedQuery ||
+          word.endsWith(normalizedQuery) ||
+          (word.startsWith(normalizedQuery) && isShortVariant);
+      if (isStrongMatch) return i;
+
+      if (word.startsWith(normalizedQuery) && weakScore == 2000) {
+        weakScore = 1000 + i;
+      }
+    }
+    return weakScore;
   }
 
   Future<List<ProductSuggestion>> _searchOpenFoodFacts(String query) async {

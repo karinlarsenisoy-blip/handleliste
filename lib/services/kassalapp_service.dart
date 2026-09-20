@@ -13,8 +13,8 @@ const _envApiKey = String.fromEnvironment('KASSALAPP_API_KEY');
 /// Looks up real Norwegian grocery products — name, pack size, image, and
 /// current price/store — from Kassalapp. Richer than Open Food Facts (which
 /// [ProductSuggestionService] falls back to if this has no key configured
-/// or the request fails), but it's a third-party service we don't control:
-/// see the "why a fallback exists" note on [ProductSuggestionService].
+/// or the request fails), but it's a third party we don't control: see the
+/// "why a fallback exists" note on [ProductSuggestionService].
 class KassalappService {
   KassalappService({http.Client? client, String? apiKey})
       : _client = client ?? http.Client(),
@@ -28,15 +28,41 @@ class KassalappService {
   /// so tests can pass a fake key without affecting this flag.
   static bool get isConfigured => _envApiKey.isNotEmpty;
 
+  /// Kassalapp's search appears to token-match rather than decompound —
+  /// "ekstra lettmelk" returns nothing at all even though "lettmelk" alone
+  /// finds real matches, because the actual product name is "Ekstra Lett
+  /// Melk" (three separate words) and "lettmelk" fused into one word never
+  /// appears literally in it. If the full query comes back empty and it
+  /// has more than one word, retrying with just the last word (Norwegian
+  /// qualifiers come before the core noun: "ekstra LETTMELK", "økologisk
+  /// MELK") gives the search a real second chance instead of silently
+  /// giving up and falling all the way through to Open Food Facts.
+  ///
+  /// Deliberately does NOT sort by price here — Kassalapp's own relevance
+  /// order (however imperfect) is what [ProductSuggestionService] re-ranks
+  /// against the query; sorting by price first was actively hiding actual
+  /// milk behind a 9,90 kr oat porridge that merely mentions milk in its
+  /// name. Price only matters once the *right* product has been found.
   Future<List<ProductSuggestion>> search(String query) async {
-    if (query.trim().isEmpty) return [];
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
 
+    var suggestions = await _fetch(trimmed);
+    if (suggestions.isEmpty) {
+      final words = trimmed.split(RegExp(r'\s+'));
+      if (words.length > 1) {
+        suggestions = await _fetch(words.last);
+      }
+    }
+    return suggestions.take(8).toList();
+  }
+
+  Future<List<ProductSuggestion>> _fetch(String query) async {
     final uri = Uri.https('kassal.app', '/api/v1/products', {
       'search': query,
-      // Kassalapp's own result order is relevance, not price — asking for a
-      // wider page and sorting client-side avoids missing the genuinely
-      // cheapest matches (e.g. a handful of small chains matching first,
-      // before the actually-cheapest one further down the unsorted list).
+      // A wider page than we'll actually show, so the non-grocery-vendor
+      // filter below has enough left over after excluding wholesale
+      // listings.
       'size': '30',
     });
 
@@ -51,7 +77,7 @@ class KassalappService {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final products = (data['data'] as List<dynamic>?) ?? [];
 
-    final suggestions = products
+    return products
         .cast<Map<String, dynamic>>()
         // Kassalapp's product data mixes in listings from non-grocery/
         // wholesale vendors (e.g. "Engrosnett") alongside real store chains
@@ -78,14 +104,6 @@ class KassalappService {
           );
         })
         .toList();
-
-    suggestions.sort((a, b) {
-      if (a.price == null && b.price == null) return 0;
-      if (a.price == null) return 1;
-      if (b.price == null) return -1;
-      return a.price!.compareTo(b.price!);
-    });
-    return suggestions.take(8).toList();
   }
 
   /// Kassalapp's `current_price` is only as fresh as the last entry in its

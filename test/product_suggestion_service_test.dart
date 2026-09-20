@@ -84,6 +84,31 @@ void main() {
       expect(results.skip(2).map((r) => r.quantity), [null, null]);
     });
 
+    test('ranks real matches ahead of products that merely mention the query', () async {
+      // The actual bug report: searching "melk" surfaced "Melkesjokolade"
+      // (milk chocolate) and "Havregrøt m/Melk" (oat porridge made with
+      // milk) ahead of plain milk, because both providers just substring-
+      // match the whole name with no notion of relevance.
+      final client = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'products': [
+              {'product_name': 'Freia Melkesjokolade', 'brands': 'Freia'},
+              {'product_name': 'Havregrøt m/Melk 50g', 'brands': 'Axa'},
+              {'product_name': 'Skummet Melk 1l', 'brands': 'Tine'},
+              {'product_name': 'Grøt Melkefri Naturell', 'brands': 'Semper'},
+            ],
+          }),
+          200,
+        );
+      });
+      final service = ProductSuggestionService(client: client);
+
+      final results = await service.search('melk');
+
+      expect(results.first.name, 'Skummet Melk 1l');
+    });
+
     test('returns an empty list for a blank query without calling the network', () async {
       var wasCalled = false;
       final client = MockClient((request) async {

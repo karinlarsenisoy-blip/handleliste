@@ -41,7 +41,11 @@ void main() {
       expect(results.first.storeName, 'Coop');
     });
 
-    test('sorts results cheapest-first, with unknown prices last', () async {
+    test('preserves Kassalapp\'s own result order — relevance ranking is a caller concern', () async {
+      // Sorting by price here once actively hid relevant matches: a cheap
+      // but irrelevant product (e.g. an oat porridge merely mentioning
+      // milk) would outrank the real, pricier product being searched for.
+      // ProductSuggestionService is responsible for relevance now.
       final client = MockClient((request) async {
         expect(request.url.queryParameters['size'], '30');
         return http.Response(
@@ -60,7 +64,49 @@ void main() {
 
       final results = await service.search('lettmelk');
 
-      expect(results.map((r) => r.storeName), ['SPAR', 'Coop', 'Joker', 'Meny']);
+      expect(results.map((r) => r.storeName), ['Joker', 'SPAR', 'Meny', 'Coop']);
+    });
+
+    test('retries with just the last word when the full query finds nothing', () async {
+      // Real-world case: Kassalapp returns zero results for "ekstra
+      // lettmelk" (a fused compound) even though the actual product is
+      // named "Ekstra Lett Melk" (separate words) — falling back to just
+      // "lettmelk" finds it.
+      final queriesSeen = <String>[];
+      final client = MockClient((request) async {
+        final query = request.url.queryParameters['search']!;
+        queriesSeen.add(query);
+        if (query == 'ekstra lettmelk') {
+          return http.Response(jsonEncode({'data': <dynamic>[]}), 200);
+        }
+        return http.Response(
+          jsonEncode({
+            'data': [
+              {'name': 'Tine Ekstra Lett Melk 1l', 'current_price': 24.9, 'store': {'name': 'Kiwi'}},
+            ],
+          }),
+          200,
+        );
+      });
+      final service = KassalappService(client: client, apiKey: 'test-key');
+
+      final results = await service.search('ekstra lettmelk');
+
+      expect(queriesSeen, ['ekstra lettmelk', 'lettmelk']);
+      expect(results, hasLength(1));
+      expect(results.first.name, 'Tine Ekstra Lett Melk 1l');
+    });
+
+    test('does not retry a single-word query that finds nothing', () async {
+      final queriesSeen = <String>[];
+      final client = MockClient((request) async {
+        queriesSeen.add(request.url.queryParameters['search']!);
+        return http.Response(jsonEncode({'data': <dynamic>[]}), 200);
+      });
+      final service = KassalappService(client: client, apiKey: 'test-key');
+
+      expect(await service.search('bortkommenvare'), isEmpty);
+      expect(queriesSeen, ['bortkommenvare']);
     });
 
     test('filters out non-grocery/wholesale vendors like Engrosnett', () async {
