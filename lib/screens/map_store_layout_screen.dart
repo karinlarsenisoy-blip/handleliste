@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../services/store_layout_service.dart';
 
 /// Lets a user physically standing in a specific store branch capture its
-/// real walk order by tapping their own list's categories in the order
-/// they pass them — the lightweight alternative to filming the store: it
-/// produces the same data (an ordered list of departments) without any
+/// real walk order by tapping the app's fixed department labels (see
+/// aisleGroupLabels — passed in as [categoryNames]) in the order they pass
+/// them — the lightweight alternative to filming the store: it produces
+/// the same data (an ordered list of departments) without any
 /// video/computer-vision work, and takes under a minute.
 class MapStoreLayoutScreen extends StatefulWidget {
   MapStoreLayoutScreen({

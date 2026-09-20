@@ -27,5 +27,31 @@ void main() {
       final nullRank = aisleRank(null);
       expect(nullRank, greaterThan(aisleRank('Non-food')));
     });
+
+    test('matches real item names directly, not just department names', () {
+      // The whole point: there's no user-authored category to read a
+      // department from anymore, so this has to work off names like these.
+      final produce = aisleRank('Bananer');
+      final dairy = aisleRank('Melk');
+      final meat = aisleRank('Kjøttdeig');
+      final nonFood = aisleRank('Oppvasktabletter');
+
+      expect(produce, lessThan(dairy));
+      expect(dairy, lessThan(meat));
+      expect(meat, lessThan(nonFood));
+    });
+
+    test('matches a plural item name from its singular stem', () {
+      expect(aisleRank('Poteter'), lessThan(aisleRank('Diverse')));
+      expect(aisleRank('Epler'), lessThan(aisleRank('Diverse')));
+    });
+  });
+
+  group('aisleGroupLabels', () {
+    test('is a fixed, non-empty list usable for mapping a store layout', () {
+      expect(aisleGroupLabels, isNotEmpty);
+      expect(aisleGroupLabels, contains('Frukt & grønt'));
+      expect(aisleGroupLabels, contains('Non-food'));
+    });
   });
 }

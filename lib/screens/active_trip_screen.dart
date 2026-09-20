@@ -30,7 +30,7 @@ class ActiveTripScreen extends StatefulWidget {
   final String listId;
   final String listName;
   final List<MapEntry<String, List<ItemAssignment>>> stops;
-  final Map<String, ({Item item, String categoryId, String categoryName})> itemLookup;
+  final Map<String, Item> itemLookup;
   final ItemService itemService;
 
   @override
@@ -45,9 +45,9 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
       if (!_checkedNames.add(itemName)) _checkedNames.remove(itemName);
     });
 
-    final lookup = widget.itemLookup[itemName];
-    if (lookup == null) return;
-    await widget.itemService.toggleItem(widget.uid, widget.listId, lookup.categoryId, lookup.item);
+    final item = widget.itemLookup[itemName];
+    if (item == null) return;
+    await widget.itemService.toggleItem(widget.uid, widget.listId, item);
   }
 
   @override

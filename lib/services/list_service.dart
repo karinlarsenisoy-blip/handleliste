@@ -3,17 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/shopping_list.dart';
 
 /// Everything needed to fully restore a deleted list: its own data plus
-/// every category and item that was nested under it.
+/// every item that lived directly under it (no category/folder level, see
+/// ItemService's doc for why).
 class ListSnapshot {
-  ListSnapshot({
-    required this.listData,
-    required this.categoriesData,
-    required this.itemsData,
-  });
+  ListSnapshot({required this.listData, required this.itemsData});
 
   final Map<String, dynamic> listData;
-  final Map<String, Map<String, dynamic>> categoriesData;
-  final Map<String, Map<String, Map<String, dynamic>>> itemsData;
+  final Map<String, Map<String, dynamic>> itemsData;
 }
 
 class ListService {
@@ -45,43 +41,25 @@ class ListService {
 
   Future<ListSnapshot> deleteList(String uid, String listId) async {
     final listDoc = await _listsRef(uid).doc(listId).get();
-    final categoriesSnapshot = await _listsRef(uid).doc(listId).collection('categories').get();
+    final itemsSnapshot = await _listsRef(uid).doc(listId).collection('items').get();
 
-    final categoriesData = <String, Map<String, dynamic>>{};
-    final itemsData = <String, Map<String, Map<String, dynamic>>>{};
+    final itemsData = {for (final i in itemsSnapshot.docs) i.id: i.data()};
     final batch = _firestore.batch();
-
-    for (final categoryDoc in categoriesSnapshot.docs) {
-      categoriesData[categoryDoc.id] = categoryDoc.data();
-      final itemsSnapshot = await categoryDoc.reference.collection('items').get();
-      itemsData[categoryDoc.id] = {for (final i in itemsSnapshot.docs) i.id: i.data()};
-      for (final itemDoc in itemsSnapshot.docs) {
-        batch.delete(itemDoc.reference);
-      }
-      batch.delete(categoryDoc.reference);
+    for (final itemDoc in itemsSnapshot.docs) {
+      batch.delete(itemDoc.reference);
     }
     batch.delete(_listsRef(uid).doc(listId));
     await batch.commit();
 
-    return ListSnapshot(
-      listData: listDoc.data()!,
-      categoriesData: categoriesData,
-      itemsData: itemsData,
-    );
+    return ListSnapshot(listData: listDoc.data()!, itemsData: itemsData);
   }
 
   Future<void> restoreList(String uid, String listId, ListSnapshot snapshot) async {
     final batch = _firestore.batch();
     final listRef = _listsRef(uid).doc(listId);
     batch.set(listRef, snapshot.listData);
-    for (final entry in snapshot.categoriesData.entries) {
-      batch.set(listRef.collection('categories').doc(entry.key), entry.value);
-    }
-    for (final categoryEntry in snapshot.itemsData.entries) {
-      final itemsRef = listRef.collection('categories').doc(categoryEntry.key).collection('items');
-      for (final itemEntry in categoryEntry.value.entries) {
-        batch.set(itemsRef.doc(itemEntry.key), itemEntry.value);
-      }
+    for (final entry in snapshot.itemsData.entries) {
+      batch.set(listRef.collection('items').doc(entry.key), entry.value);
     }
     await batch.commit();
   }

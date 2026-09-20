@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../models/category.dart';
 import '../models/favorite_item.dart';
 import '../models/shopping_list.dart';
-import '../services/category_service.dart';
 import '../services/favorites_service.dart';
 import '../services/item_service.dart';
 import '../services/list_service.dart';
@@ -18,17 +16,14 @@ class FavoritesScreen extends StatefulWidget {
     required this.uid,
     FavoritesService? favoritesService,
     ListService? listService,
-    CategoryService? categoryService,
     ItemService? itemService,
   })  : favoritesService = favoritesService ?? FavoritesService(),
         listService = listService ?? ListService(),
-        categoryService = categoryService ?? CategoryService(),
         itemService = itemService ?? ItemService();
 
   final String uid;
   final FavoritesService favoritesService;
   final ListService listService;
-  final CategoryService categoryService;
   final ItemService itemService;
 
   @override
@@ -68,28 +63,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
-  Future<Category?> _pickCategory(List<Category> categories) {
-    return showModalBottomSheet<Category>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('I hvilken kategori?', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-            for (final category in categories)
-              ListTile(
-                title: Text(category.name),
-                onTap: () => Navigator.pop(context, category),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _addToList(FavoriteItem favorite) async {
     final lists = await widget.listService.watchLists(widget.uid).first;
     if (!mounted) return;
@@ -102,19 +75,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     final list = await _pickList(lists);
     if (list == null || !mounted) return;
 
-    final categories = await widget.categoryService.watchCategories(widget.uid, list.id).first;
-    if (!mounted) return;
-    if (categories.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('«${list.name}» har ingen kategorier ennå — legg til én der først.')),
-      );
-      return;
-    }
-
-    final category = await _pickCategory(categories);
-    if (category == null || !mounted) return;
-
-    await widget.itemService.addItem(widget.uid, list.id, category.id, favorite.name);
+    await widget.itemService.addItem(widget.uid, list.id, favorite.name);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${favorite.name} lagt til i «${list.name}»')),

@@ -13,21 +13,17 @@ class AccountService {
   // a real FirebaseAuth instance (which requires Firebase.initializeApp()).
   FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
 
-  /// Recursively deletes every list/category/item belonging to [uid].
-  /// Kept separate from [deleteAccount] so the Firestore-only part can be
-  /// tested with a fake Firestore instance, without needing a real Auth user.
+  /// Recursively deletes every list/item belonging to [uid]. Kept separate
+  /// from [deleteAccount] so the Firestore-only part can be tested with a
+  /// fake Firestore instance, without needing a real Auth user.
   Future<void> deleteAllUserData(String uid) async {
     final userRef = _firestore.collection('users').doc(uid);
     final listsSnapshot = await userRef.collection('lists').get();
 
     final refsToDelete = <DocumentReference>[];
     for (final listDoc in listsSnapshot.docs) {
-      final categoriesSnapshot = await listDoc.reference.collection('categories').get();
-      for (final categoryDoc in categoriesSnapshot.docs) {
-        final itemsSnapshot = await categoryDoc.reference.collection('items').get();
-        refsToDelete.addAll(itemsSnapshot.docs.map((d) => d.reference));
-        refsToDelete.add(categoryDoc.reference);
-      }
+      final itemsSnapshot = await listDoc.reference.collection('items').get();
+      refsToDelete.addAll(itemsSnapshot.docs.map((d) => d.reference));
       refsToDelete.add(listDoc.reference);
     }
 

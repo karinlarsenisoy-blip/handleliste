@@ -9,14 +9,12 @@ class ItemTile extends StatelessWidget {
     super.key,
     required this.uid,
     required this.listId,
-    required this.categoryId,
     required this.item,
     required this.itemService,
   });
 
   final String uid;
   final String listId;
-  final String categoryId;
   final Item item;
   final ItemService itemService;
 
@@ -40,7 +38,6 @@ class ItemTile extends StatelessWidget {
       itemService.updateItem(
         uid,
         listId,
-        categoryId,
         item,
         name: result.name,
         quantity: result.quantity,
@@ -53,14 +50,14 @@ class ItemTile extends StatelessWidget {
   Future<void> _deleteItem(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     final name = item.name;
-    final data = await itemService.deleteItem(uid, listId, categoryId, item);
+    final data = await itemService.deleteItem(uid, listId, item);
 
     messenger.showSnackBar(
       SnackBar(
         content: Text('«$name» ble slettet'),
         action: SnackBarAction(
           label: 'ANGRE',
-          onPressed: () => itemService.restoreItem(uid, listId, categoryId, item.id, data),
+          onPressed: () => itemService.restoreItem(uid, listId, item.id, data),
         ),
         duration: const Duration(seconds: 6),
       ),
@@ -90,7 +87,7 @@ class ItemTile extends StatelessWidget {
           children: [
             Checkbox(
               value: item.isChecked,
-              onChanged: (_) => itemService.toggleItem(uid, listId, categoryId, item),
+              onChanged: (_) => itemService.toggleItem(uid, listId, item),
             ),
             if (item.imageUrl != null)
               Padding(

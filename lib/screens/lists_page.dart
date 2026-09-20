@@ -1,35 +1,35 @@
 import 'package:flutter/material.dart';
 
 import '../models/shopping_list.dart';
-import '../services/category_service.dart';
 import '../services/item_service.dart';
 import '../services/list_service.dart';
-import 'categories_page.dart';
 import 'cheapest_store_screen.dart';
-import 'favorites_screen.dart';
-import 'profile_screen.dart';
+import 'list_items_view.dart';
 
 /// Top-level screen: a row of tabs ("Ukehandel", "Bursdag", ...), each
-/// showing its own independent set of categories and items.
+/// showing its own independent flat list of items — no category/folder
+/// level (see ItemService's doc for why). List-specific actions (rename,
+/// delete, "Finn billigst" for the selected list) live in one overflow
+/// menu rather than a row of AppBar icons — Favoritter and Profil moved to
+/// HomeShell's own navigation, since they aren't specific to one list.
 class ListsPage extends StatefulWidget {
   ListsPage({
     super.key,
     required this.uid,
     ListService? listService,
-    CategoryService? categoryService,
     ItemService? itemService,
   })  : listService = listService ?? ListService(),
-        categoryService = categoryService ?? CategoryService(),
         itemService = itemService ?? ItemService();
 
   final String uid;
   final ListService listService;
-  final CategoryService categoryService;
   final ItemService itemService;
 
   @override
   State<ListsPage> createState() => _ListsPageState();
 }
+
+enum _ListAction { rename, delete, cheapest }
 
 class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
   TabController? _tabController;
@@ -76,18 +76,14 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _renameCurrentList() async {
-    if (_lists.isEmpty || _tabController == null) return;
-    final current = _lists[_tabController!.index];
+  Future<void> _renameCurrentList(ShoppingList current) async {
     final name = await _promptForName(title: 'Gi listen nytt navn', initialText: current.name);
     if (name != null && name.isNotEmpty) {
       await widget.listService.renameList(widget.uid, current.id, name);
     }
   }
 
-  Future<void> _deleteCurrentList() async {
-    if (_lists.isEmpty || _tabController == null) return;
-    final current = _lists[_tabController!.index];
+  Future<void> _deleteCurrentList(ShoppingList current) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -117,6 +113,26 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
     );
   }
 
+  void _openCheapestStore(ShoppingList current) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CheapestStoreScreen(uid: widget.uid, listId: current.id, listName: current.name),
+      ),
+    );
+  }
+
+  void _handleListAction(_ListAction action, ShoppingList current) {
+    switch (action) {
+      case _ListAction.rename:
+        _renameCurrentList(current);
+      case _ListAction.delete:
+        _deleteCurrentList(current);
+      case _ListAction.cheapest:
+        _openCheapestStore(current);
+    }
+  }
+
   @override
   void dispose() {
     _tabController?.dispose();
@@ -137,6 +153,7 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
 
         final lists = snapshot.data ?? [];
         _syncTabController(lists);
+        final current = lists.isEmpty ? null : lists[_tabController!.index.clamp(0, lists.length - 1)];
 
         return Scaffold(
           appBar: AppBar(
@@ -150,52 +167,24 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
                   ),
             actions: [
               IconButton(icon: const Icon(Icons.add), tooltip: 'Ny liste', onPressed: _addList),
-              if (lists.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  tooltip: 'Endre navn på liste',
-                  onPressed: _renameCurrentList,
+              if (current != null)
+                PopupMenuButton<_ListAction>(
+                  onSelected: (action) => _handleListAction(action, current),
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _ListAction.cheapest,
+                      child: ListTile(leading: Icon(Icons.savings_outlined), title: Text('Finn billigst')),
+                    ),
+                    PopupMenuItem(
+                      value: _ListAction.rename,
+                      child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Endre navn')),
+                    ),
+                    PopupMenuItem(
+                      value: _ListAction.delete,
+                      child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Slett liste')),
+                    ),
+                  ],
                 ),
-              if (lists.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Slett liste',
-                  onPressed: _deleteCurrentList,
-                ),
-              if (lists.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.savings_outlined),
-                  tooltip: 'Finn billigst',
-                  onPressed: () {
-                    final current = lists[_tabController!.index];
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CheapestStoreScreen(
-                          uid: widget.uid,
-                          listId: current.id,
-                          listName: current.name,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              IconButton(
-                icon: const Icon(Icons.star_outline),
-                tooltip: 'Favoritter',
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => FavoritesScreen(uid: widget.uid)),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.account_circle),
-                tooltip: 'Profil',
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfileScreen(uid: widget.uid)),
-                ),
-              ),
             ],
           ),
           body: lists.isEmpty
@@ -208,11 +197,10 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
                   controller: _tabController,
                   children: lists
                       .map(
-                        (list) => CategoriesView(
+                        (list) => ListItemsView(
                           key: ValueKey(list.id),
                           uid: widget.uid,
                           listId: list.id,
-                          categoryService: widget.categoryService,
                           itemService: widget.itemService,
                         ),
                       )

@@ -6,7 +6,6 @@ import '../models/shopping_split.dart';
 import '../models/store_layout.dart';
 import '../models/store_location.dart';
 import '../models/store_total.dart';
-import '../services/category_service.dart';
 import '../services/cheapest_store_service.dart';
 import '../services/item_service.dart';
 import '../services/location_service.dart';
@@ -34,14 +33,12 @@ class CheapestStoreScreen extends StatefulWidget {
     required this.uid,
     required this.listId,
     required this.listName,
-    CategoryService? categoryService,
     ItemService? itemService,
     CheapestStoreService? cheapestStoreService,
     LocationService? locationService,
     StoreLocatorService? storeLocatorService,
     StoreLayoutService? storeLayoutService,
-  })  : categoryService = categoryService ?? CategoryService(),
-        itemService = itemService ?? ItemService(),
+  })  : itemService = itemService ?? ItemService(),
         cheapestStoreService = cheapestStoreService ?? CheapestStoreService(),
         locationService = locationService ?? LocationService(),
         storeLocatorService = storeLocatorService ?? StoreLocatorService(),
@@ -50,7 +47,6 @@ class CheapestStoreScreen extends StatefulWidget {
   final String uid;
   final String listId;
   final String listName;
-  final CategoryService categoryService;
   final ItemService itemService;
   final CheapestStoreService cheapestStoreService;
   final LocationService locationService;
@@ -77,13 +73,11 @@ class _Loaded {
   final List<String> itemNames;
   final CheapestStoreAnalysis analysis;
 
-  /// Where each item name actually lives (which category, and that
-  /// category's name), so a confirmed trip can check items off for real via
-  /// [ItemService.toggleItem] instead of just toggling something on screen
-  /// that forgets itself when you leave the page — and so items can be
-  /// sorted by store-aisle order using the category name (see
-  /// [aisleRank]).
-  final Map<String, ({Item item, String categoryId, String categoryName})> itemLookup;
+  /// The real [Item] behind each item name, so a confirmed trip can check
+  /// items off for real via [ItemService.toggleItem] instead of just
+  /// toggling something on screen that forgets itself when you leave the
+  /// page.
+  final Map<String, Item> itemLookup;
 }
 
 class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
@@ -184,21 +178,14 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
   }
 
   Future<_Loaded> _load() async {
-    final categories = await widget.categoryService.watchCategories(widget.uid, widget.listId).first;
-    final itemNames = <String>[];
-    final itemLookup = <String, ({Item item, String categoryId, String categoryName})>{};
-    for (final category in categories) {
-      final items = await widget.itemService.watchItems(widget.uid, widget.listId, category.id).first;
-      // Deliberately NOT filtering by isChecked: that only means "in the
-      // physical cart right now" (see ActiveTripScreen) — it's not a
-      // confirmation that the item was actually bought, let alone bought at
-      // the store/price this analysis would assign it to. Mixing that
-      // uncertain signal into price planning would be misleading.
-      for (final item in items) {
-        itemNames.add(item.name);
-        itemLookup[item.name] = (item: item, categoryId: category.id, categoryName: category.name);
-      }
-    }
+    final items = await widget.itemService.watchItems(widget.uid, widget.listId).first;
+    // Deliberately NOT filtering by isChecked: that only means "in the
+    // physical cart right now" (see ActiveTripScreen) — it's not a
+    // confirmation that the item was actually bought, let alone bought at
+    // the store/price this analysis would assign it to. Mixing that
+    // uncertain signal into price planning would be misleading.
+    final itemNames = items.map((i) => i.name).toList();
+    final itemLookup = {for (final item in items) item.name: item};
     final analysis = await widget.cheapestStoreService.analyze(itemNames);
     return _Loaded(itemNames, analysis, itemLookup);
   }
@@ -411,7 +398,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
     List<String> itemNames,
     ShoppingSplit fullSplit,
     List<StoreTotal> singleStoreTotals,
-    Map<String, ({Item item, String categoryId, String categoryName})> itemLookup,
+    Map<String, Item> itemLookup,
   ) {
     if (fullSplit.assignments.isEmpty) {
       return const Padding(
@@ -446,13 +433,13 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
       // overrides the generic aisle-order fallback when one exists for the
       // branch we'd actually visit for this store.
       final layout = _layoutsByBranchId[_nearestBranch(stop.key)?.location.branchId];
-      stop.value.sort((a, b) {
-        final categoryA = itemLookup[a.itemName]?.categoryName;
-        final categoryB = itemLookup[b.itemName]?.categoryName;
-        final rankA = layout != null && categoryA != null ? layout.rankOf(categoryA) : aisleRank(categoryA);
-        final rankB = layout != null && categoryB != null ? layout.rankOf(categoryB) : aisleRank(categoryB);
-        return rankA.compareTo(rankB);
-      });
+      int rankFor(String itemName) {
+        final label = aisleLabelFor(itemName);
+        if (layout != null && label != null) return layout.rankOf(label);
+        return aisleRank(itemName);
+      }
+
+      stop.value.sort((a, b) => rankFor(a.itemName).compareTo(rankFor(b.itemName)));
     }
     final savings = _computeSavings(split, singleStoreTotals);
     final savingsItemsLabel = savings == null
@@ -562,7 +549,7 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
                                   branchId: nearest.location.branchId,
                                   branchLabel: nearest.location.name,
                                   chainName: entry.key,
-                                  categoryNames: itemLookup.values.map((v) => v.categoryName).toSet().toList(),
+                                  categoryNames: aisleGroupLabels,
                                   storeLayoutService: widget.storeLayoutService,
                                 ),
                               ),

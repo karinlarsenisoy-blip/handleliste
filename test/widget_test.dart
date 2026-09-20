@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:handleliste_app/screens/lists_page.dart';
 import 'package:handleliste_app/services/account_service.dart';
-import 'package:handleliste_app/services/category_service.dart';
 import 'package:handleliste_app/services/item_service.dart';
 import 'package:handleliste_app/services/list_service.dart';
 
@@ -12,14 +11,12 @@ void main() {
   Future<void> pumpListsPage(
     WidgetTester tester, {
     required ListService listService,
-    required CategoryService categoryService,
     required ItemService itemService,
   }) async {
     await tester.pumpWidget(MaterialApp(
       home: ListsPage(
         uid: 'test-uid',
         listService: listService,
-        categoryService: categoryService,
         itemService: itemService,
       ),
     ));
@@ -31,19 +28,17 @@ void main() {
     await pumpListsPage(
       tester,
       listService: ListService(firestore: firestore),
-      categoryService: CategoryService(firestore: firestore),
       itemService: ItemService(firestore: firestore),
     );
 
     expect(find.textContaining('Ingen lister ennå'), findsOneWidget);
   });
 
-  testWidgets('can create two lists and add a category+item inside one of them', (WidgetTester tester) async {
+  testWidgets('can create two lists and add an item inside one of them', (WidgetTester tester) async {
     final firestore = FakeFirebaseFirestore();
     await pumpListsPage(
       tester,
       listService: ListService(firestore: firestore),
-      categoryService: CategoryService(firestore: firestore),
       itemService: ItemService(firestore: firestore),
     );
 
@@ -70,61 +65,49 @@ void main() {
 
     expect(find.text('Bursdag'), findsWidgets);
 
-    // Add a category + item inside the currently selected ("Ukehandel") list.
-    await tester.enterText(find.widgetWithText(TextField, 'Ny kategori...'), 'Meieri');
+    // Add an item directly to the currently selected ("Ukehandel") list —
+    // no category step, lists have no folder level.
+    await tester.enterText(find.widgetWithText(TextField, 'Ny vare...'), 'Melk');
     await tester.tap(find.byIcon(Icons.add).last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Meieri'), findsOneWidget);
+    expect(find.text('Melk'), findsOneWidget);
   });
 
-  testWidgets('deleting a category shows undo, and undo restores it with its item', (WidgetTester tester) async {
+  testWidgets('deleting an item shows undo, and undo restores it', (WidgetTester tester) async {
     final firestore = FakeFirebaseFirestore();
     final listService = ListService(firestore: firestore);
-    final categoryService = CategoryService(firestore: firestore);
     final itemService = ItemService(firestore: firestore);
 
     await listService.addList('test-uid', 'Ukehandel');
     final lists = await listService.watchLists('test-uid').first;
-    await categoryService.addCategory('test-uid', lists.first.id, 'Meieri');
-    final categories = await categoryService.watchCategories('test-uid', lists.first.id).first;
-    await itemService.addItem('test-uid', lists.first.id, categories.first.id, 'Melk');
+    await itemService.addItem('test-uid', lists.first.id, 'Melk');
 
-    await pumpListsPage(tester, listService: listService, categoryService: categoryService, itemService: itemService);
+    await pumpListsPage(tester, listService: listService, itemService: itemService);
 
-    await tester.tap(find.byTooltip('Slett kategori'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Slett'));
+    expect(find.text('Melk'), findsOneWidget);
+    await tester.drag(find.text('Melk'), const Offset(-500, 0));
     await tester.pumpAndSettle();
 
-    expect(find.text('Meieri'), findsNothing);
+    expect(find.text('Melk'), findsNothing);
     expect(find.textContaining('ble slettet'), findsOneWidget);
 
     await tester.tap(find.text('ANGRE'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Meieri'), findsOneWidget);
-    await tester.tap(find.text('Meieri'));
-    await tester.pumpAndSettle();
     expect(find.text('Melk'), findsOneWidget);
   });
 
   testWidgets('editing an item through the edit dialog updates its name and quantity', (WidgetTester tester) async {
     final firestore = FakeFirebaseFirestore();
     final listService = ListService(firestore: firestore);
-    final categoryService = CategoryService(firestore: firestore);
     final itemService = ItemService(firestore: firestore);
 
     await listService.addList('test-uid', 'Ukehandel');
     final lists = await listService.watchLists('test-uid').first;
-    await categoryService.addCategory('test-uid', lists.first.id, 'Meieri');
-    final categories = await categoryService.watchCategories('test-uid', lists.first.id).first;
-    await itemService.addItem('test-uid', lists.first.id, categories.first.id, 'Gammelt navn');
+    await itemService.addItem('test-uid', lists.first.id, 'Gammelt navn');
 
-    await pumpListsPage(tester, listService: listService, categoryService: categoryService, itemService: itemService);
-
-    await tester.tap(find.text('Meieri'));
-    await tester.pumpAndSettle();
+    await pumpListsPage(tester, listService: listService, itemService: itemService);
 
     await tester.tap(find.byTooltip('Rediger vare'));
     await tester.pumpAndSettle();
@@ -146,19 +129,13 @@ void main() {
   testWidgets('checking an item strikes it through', (WidgetTester tester) async {
     final firestore = FakeFirebaseFirestore();
     final listService = ListService(firestore: firestore);
-    final categoryService = CategoryService(firestore: firestore);
     final itemService = ItemService(firestore: firestore);
 
     await listService.addList('test-uid', 'Ukehandel');
     final lists = await listService.watchLists('test-uid').first;
-    await categoryService.addCategory('test-uid', lists.first.id, 'Meieri');
-    final categories = await categoryService.watchCategories('test-uid', lists.first.id).first;
-    await itemService.addItem('test-uid', lists.first.id, categories.first.id, 'Melk');
+    await itemService.addItem('test-uid', lists.first.id, 'Melk');
 
-    await pumpListsPage(tester, listService: listService, categoryService: categoryService, itemService: itemService);
-
-    await tester.tap(find.text('Meieri'));
-    await tester.pumpAndSettle();
+    await pumpListsPage(tester, listService: listService, itemService: itemService);
 
     await tester.tap(find.byType(Checkbox));
     await tester.pumpAndSettle();
@@ -167,18 +144,15 @@ void main() {
     expect(text.style?.decoration, TextDecoration.lineThrough);
   });
 
-  test('deleteAllUserData removes every list, category and item for that user', () async {
+  test('deleteAllUserData removes every list and item for that user', () async {
     final firestore = FakeFirebaseFirestore();
     final listService = ListService(firestore: firestore);
-    final categoryService = CategoryService(firestore: firestore);
     final itemService = ItemService(firestore: firestore);
     final accountService = AccountService(firestore: firestore);
 
     await listService.addList('test-uid', 'Ukehandel');
     final lists = await listService.watchLists('test-uid').first;
-    await categoryService.addCategory('test-uid', lists.first.id, 'Meieri');
-    final categories = await categoryService.watchCategories('test-uid', lists.first.id).first;
-    await itemService.addItem('test-uid', lists.first.id, categories.first.id, 'Melk');
+    await itemService.addItem('test-uid', lists.first.id, 'Melk');
 
     // Another user's data must survive untouched.
     await listService.addList('other-uid', 'Privat');

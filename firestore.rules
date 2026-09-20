@@ -25,14 +25,11 @@ service cloud.firestore {
       allow read, delete: if isOwner(userId);
       allow create, update: if isOwner(userId) && isValidName(request.resource.data.name);
 
-      match /categories/{categoryId} {
+      // Items live directly under the list — no category/folder level
+      // (see ItemService's doc for why).
+      match /items/{itemId} {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId) && isValidName(request.resource.data.name);
-
-        match /items/{itemId} {
-          allow read, delete: if isOwner(userId);
-          allow create, update: if isOwner(userId) && isValidName(request.resource.data.name);
-        }
       }
     }
 

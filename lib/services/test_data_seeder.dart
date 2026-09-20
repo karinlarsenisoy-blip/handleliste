@@ -1,5 +1,4 @@
 import '../models/price_observation.dart';
-import 'category_service.dart';
 import 'item_service.dart';
 import 'list_service.dart';
 import 'price_service.dart';
@@ -12,16 +11,13 @@ import 'price_service.dart';
 class TestDataSeeder {
   TestDataSeeder({
     ListService? listService,
-    CategoryService? categoryService,
     ItemService? itemService,
     PriceService? priceService,
   })  : _listService = listService ?? ListService(),
-        _categoryService = categoryService ?? CategoryService(),
         _itemService = itemService ?? ItemService(),
         _priceService = priceService ?? PriceService();
 
   final ListService _listService;
-  final CategoryService _categoryService;
   final ItemService _itemService;
   final PriceService _priceService;
 
@@ -36,20 +32,14 @@ class TestDataSeeder {
     final list = (await _listService.watchLists(uid).first)
         .firstWhere((l) => l.name == 'Ukehandel');
 
-    final groceries = {
-      'Meieri': ['Melk', 'Ost', 'Yoghurt', 'Smør'],
-      'Frukt & grønt': ['Bananer', 'Epler', 'Poteter', 'Løk'],
-      'Kjøtt & fisk': ['Kjøttdeig', 'Kyllingfilet'],
-      'Non-food': ['Oppvasktabletter', 'Toalettpapir'],
-    };
-
-    for (final entry in groceries.entries) {
-      await _categoryService.addCategory(uid, list.id, entry.key);
-      final category = (await _categoryService.watchCategories(uid, list.id).first)
-          .firstWhere((c) => c.name == entry.key);
-      for (final itemName in entry.value) {
-        await _itemService.addItem(uid, list.id, category.id, itemName);
-      }
+    const groceries = [
+      'Melk', 'Ost', 'Yoghurt', 'Smør',
+      'Bananer', 'Epler', 'Poteter', 'Løk',
+      'Kjøttdeig', 'Kyllingfilet',
+      'Oppvasktabletter', 'Toalettpapir',
+    ];
+    for (final itemName in groceries) {
+      await _itemService.addItem(uid, list.id, itemName);
     }
   }
 
@@ -58,12 +48,8 @@ class TestDataSeeder {
     final list = (await _listService.watchLists(uid).first)
         .firstWhere((l) => l.name == 'Hjem fra jobb');
 
-    await _categoryService.addCategory(uid, list.id, 'Diverse');
-    final category = (await _categoryService.watchCategories(uid, list.id).first)
-        .firstWhere((c) => c.name == 'Diverse');
-
     for (final itemName in ['Brød', 'Melk', 'Bananer']) {
-      await _itemService.addItem(uid, list.id, category.id, itemName);
+      await _itemService.addItem(uid, list.id, itemName);
     }
   }
 
