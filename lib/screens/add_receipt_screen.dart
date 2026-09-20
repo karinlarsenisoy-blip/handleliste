@@ -12,19 +12,21 @@ import '../services/receipt_service.dart';
 import '../widgets/product_name_field.dart';
 
 /// Captures one receipt: pick a store and date, then get the raw text in
-/// either by pasting it (works everywhere — used for stores with no real
-/// receipt, just a scrolling purchase list you copy) or by photographing a
-/// physical/app receipt and running on-device OCR (Android/iOS only). Both
-/// paths feed the same [ReceiptParser] and the same editable review list —
-/// the parser is a best guess, never trusted blindly, so every field stays
-/// editable to fix a misparse.
+/// by photographing a physical/app receipt and running on-device OCR
+/// (Android/iOS only) — the preferred path, since it's tied to an actual
+/// image. On web, where ML Kit has no implementation at all
+/// ([OcrService.isSupported] is false there), pasting text is offered
+/// instead purely as a necessary fallback, not a parallel option on
+/// platforms that have real OCR. Both paths feed the same [ReceiptParser]
+/// and the same editable review list — the parser is a best guess, never
+/// trusted blindly, so every field stays editable to fix a misparse.
 ///
 /// Deliberately does NOT let a user add a row from nothing: every item on a
-/// saved receipt must trace back to an actual receipt (photographed or
-/// pasted) — a freely-typed name and price is an unverified source that
-/// could pollute the shared price database with mistakes or made-up
-/// numbers. Editing a *parsed* row to fix a misrecognized name/price is
-/// fine; inventing a new one isn't.
+/// saved receipt must trace back to an actual receipt (photographed, or
+/// pasted on web where that's the only option) — a freely-typed name and
+/// price is an unverified source that could pollute the shared price
+/// database with mistakes or made-up numbers. Editing a *parsed* row to fix
+/// a misrecognized name/price is fine; inventing a new one isn't.
 ///
 /// Saving always keeps the receipt in the user's own private history.
 /// Whether its prices also get contributed anonymously to the shared price
@@ -265,38 +267,32 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
                 ],
               ),
             ],
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Row(
-                children: [
-                  Expanded(child: Divider()),
-                  Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('eller')),
-                  Expanded(child: Divider()),
-                ],
+          ] else ...[
+            // Web has no on-device OCR at all (see OcrService.isSupported)
+            // — pasting is the only way to get a receipt in here, not a
+            // parallel convenience like it would be alongside a camera.
+            TextField(
+              controller: _rawTextController,
+              maxLines: 8,
+              decoration: const InputDecoration(
+                labelText: 'Lim inn tekst fra kvitteringen eller kjøpslisten',
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: () {
+                  _source = ReceiptSource.pastedText;
+                  _parseText();
+                },
+                icon: const Icon(Icons.auto_fix_high),
+                label: const Text('Tolk tekst'),
               ),
             ),
           ],
-          TextField(
-            controller: _rawTextController,
-            maxLines: 8,
-            decoration: const InputDecoration(
-              labelText: 'Lim inn tekst fra kvitteringen eller kjøpslisten',
-              border: OutlineInputBorder(),
-              alignLabelWithHint: true,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-              onPressed: () {
-                _source = ReceiptSource.pastedText;
-                _parseText();
-              },
-              icon: const Icon(Icons.auto_fix_high),
-              label: const Text('Tolk tekst'),
-            ),
-          ),
           const Divider(height: 32),
           Text('Varer (${_items.length})', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
