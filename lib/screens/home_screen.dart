@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../services/cheapest_store_service.dart';
 import '../services/receipt_service.dart';
+import '../widgets/product_name_field.dart';
 import 'add_receipt_screen.dart';
 import 'profile_screen.dart';
-import '../widgets/product_name_field.dart';
+import 'voice_list_entry_screen.dart';
 
 /// The app's front page: search is the very first thing you can do, since
 /// "which store is this cheapest at right now" is the whole point of
@@ -125,6 +126,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 MaterialPageRoute(
                   builder: (context) => AddReceiptScreen(uid: widget.uid, receiptService: widget.receiptService),
                 ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.mic_none),
+              title: const Text('Si varenavn til en liste'),
+              subtitle: const Text('Si varenavn ett og ett — fungerer i Chrome/Edge'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => VoiceListEntryScreen(uid: widget.uid)),
               ),
             ),
           ),

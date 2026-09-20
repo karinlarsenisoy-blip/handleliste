@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/favorite_item.dart';
-import '../models/shopping_list.dart';
 import '../services/favorites_service.dart';
 import '../services/item_service.dart';
 import '../services/list_service.dart';
+import '../widgets/list_picker.dart';
 
 /// "What do you actually keep buying" — built from receipt history rather
 /// than list history, so it reflects real purchases, not just things that
@@ -41,28 +41,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     return 'sist kjøpt for ${(age.inDays / 30).round()} måneder siden';
   }
 
-  Future<ShoppingList?> _pickList(List<ShoppingList> lists) {
-    return showModalBottomSheet<ShoppingList>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Legg til i hvilken liste?', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-            for (final list in lists)
-              ListTile(
-                title: Text(list.name),
-                onTap: () => Navigator.pop(context, list),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _addToList(FavoriteItem favorite) async {
     final lists = await widget.listService.watchLists(widget.uid).first;
     if (!mounted) return;
@@ -72,7 +50,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       return;
     }
 
-    final list = await _pickList(lists);
+    final list = await pickList(context, lists);
     if (list == null || !mounted) return;
 
     await widget.itemService.addItem(widget.uid, list.id, favorite.name);
