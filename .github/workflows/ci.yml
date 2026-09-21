@@ -25,3 +25,35 @@ jobs:
 
       - name: Test
         run: flutter test
+
+  # Only runs after analyze-and-test passes, and only for a real push to
+  # master (never for a pull_request build) - see project notes on why
+  # this deploys straight to the only environment that currently exists,
+  # with a revisit planned once a separate test/live split is built.
+  deploy:
+    needs: analyze-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # config/kassalapp.json is gitignored (real API key) - reconstructed
+      # here from a GitHub secret so the CI build has the same key the
+      # local build/deploy always used.
+      - name: Write Kassalapp config
+        run: echo '{"KASSALAPP_API_KEY":"${{ secrets.KASSALAPP_API_KEY }}"}' > config/kassalapp.json
+
+      - name: Build web
+        run: flutter build web --release --dart-define-from-file=config/kassalapp.json
+
+      - name: Deploy to Firebase Hosting
+        run: npx firebase-tools deploy --only hosting --non-interactive --token "${{ secrets.FIREBASE_TOKEN }}"
