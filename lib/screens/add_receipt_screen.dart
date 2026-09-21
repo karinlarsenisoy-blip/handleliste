@@ -190,7 +190,12 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
 
     await widget.receiptService.addReceipt(widget.uid, receipt);
 
-    if (_shareAnonymously) {
+    // "Annet" is the catch-all for anything not a known grocery chain (e.g.
+    // IKEA, Kid) — there's no way to verify those items are even groceries,
+    // so they're never eligible for the shared price database, regardless
+    // of the switch below (which is itself disabled whenever "Annet" is
+    // selected — this is defense in depth, not the only guard).
+    if (_shareAnonymously && _store.id != 'annet') {
       for (final item in items) {
         // The price on a receipt line is the total for that line, not a
         // per-unit price — dividing by quantity here is what keeps the
@@ -340,11 +345,13 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            value: _shareAnonymously,
-            onChanged: (value) => setState(() => _shareAnonymously = value),
+            value: _shareAnonymously && _store.id != 'annet',
+            onChanged: _store.id == 'annet' ? null : (value) => setState(() => _shareAnonymously = value),
             title: const Text('Del prisene anonymt'),
-            subtitle: const Text(
-              'Vare og pris (ikke hvem du er) blir synlig for alle i prisoversikten.',
+            subtitle: Text(
+              _store.id == 'annet'
+                  ? 'Ikke tilgjengelig for «Annet» — vi deler bare priser fra kjente dagligvarekjeder.'
+                  : 'Vare og pris (ikke hvem du er) blir synlig for alle i prisoversikten.',
             ),
           ),
           const SizedBox(height: 8),
