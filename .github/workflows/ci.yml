@@ -48,9 +48,13 @@ jobs:
 
       # config/kassalapp.json is gitignored (real API key) - reconstructed
       # here from a GitHub secret so the CI build has the same key the
-      # local build/deploy always used.
+      # local build/deploy always used. Built via jq (not a manually
+      # quoted string) so a stray trailing newline in the secret - the
+      # single most common way of pasting one in - can't ever produce
+      # invalid JSON and break the build again.
       - name: Write Kassalapp config
-        run: echo '{"KASSALAPP_API_KEY":"${{ secrets.KASSALAPP_API_KEY }}"}' > config/kassalapp.json
+        run: |
+          printf '%s' "${{ secrets.KASSALAPP_API_KEY }}" | tr -d '\n\r' | jq -Rs '{"KASSALAPP_API_KEY": .}' > config/kassalapp.json
 
       - name: Build web
         run: flutter build web --release --dart-define-from-file=config/kassalapp.json
