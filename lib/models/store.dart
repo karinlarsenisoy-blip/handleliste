@@ -1,3 +1,5 @@
+import '../config/market.dart';
+
 /// A known grocery chain the user can pick a receipt's store from.
 class Store {
   const Store(this.id, this.name);
@@ -6,45 +8,56 @@ class Store {
   final String name;
 }
 
-/// The most common Norwegian grocery chains, plus a catch-all for the rest.
-const List<Store> knownStores = [
-  Store('kiwi', 'Kiwi'),
-  Store('rema1000', 'Rema 1000'),
-  Store('coop_extra', 'Coop Extra'),
-  Store('coop_mega', 'Coop Mega'),
-  Store('coop_prix', 'Coop Prix'),
-  Store('coop_obs', 'Coop Obs'),
-  Store('meny', 'Meny'),
-  Store('spar', 'Spar'),
-  Store('bunnpris', 'Bunnpris'),
-  Store('joker', 'Joker'),
-  Store('annet', 'Annet'),
-];
+/// The most common grocery chains per market, plus a catch-all for the
+/// rest. Keyed by [currentMarket] so a future second market (e.g. Sweden's
+/// ICA/Willys/Hemköp/City Gross) is a new map entry, not a rewrite of every
+/// call site that already reads [knownStores] — only `'no'` is populated
+/// today.
+const Map<String, List<Store>> _storesByMarket = {
+  'no': [
+    Store('kiwi', 'Kiwi'),
+    Store('rema1000', 'Rema 1000'),
+    Store('coop_extra', 'Coop Extra'),
+    Store('coop_mega', 'Coop Mega'),
+    Store('coop_prix', 'Coop Prix'),
+    Store('coop_obs', 'Coop Obs'),
+    Store('meny', 'Meny'),
+    Store('spar', 'Spar'),
+    Store('bunnpris', 'Bunnpris'),
+    Store('joker', 'Joker'),
+    Store('annet', 'Annet'),
+  ],
+};
 
-/// Substrings (lowercase) of real, consumer-facing Norwegian grocery
-/// retailers — used to filter out non-store listings (e.g. wholesale/B2B
+List<Store> get knownStores => _storesByMarket[currentMarket]!;
+
+/// Substrings (lowercase) of real, consumer-facing grocery retailer names
+/// per market — used to filter out non-store listings (e.g. wholesale/B2B
 /// vendors like "Engrosnett") that show up mixed into third-party product
 /// data alongside actual grocery chains.
-const List<String> _knownGroceryStoreNameFragments = [
-  'kiwi',
-  'rema',
-  'coop',
-  'extra',
-  'prix',
-  'mega',
-  'obs',
-  'spar',
-  'meny',
-  'joker',
-  'bunnpris',
-  'oda', // Oda (oda.com) is a real online grocery retailer, not a wholesaler.
-];
+const Map<String, List<String>> _groceryStoreNameFragmentsByMarket = {
+  'no': [
+    'kiwi',
+    'rema',
+    'coop',
+    'extra',
+    'prix',
+    'mega',
+    'obs',
+    'spar',
+    'meny',
+    'joker',
+    'bunnpris',
+    'oda', // Oda (oda.com) is a real online grocery retailer, not a wholesaler.
+  ],
+};
 
-/// Whether [storeName] looks like a real, consumer-facing Norwegian grocery
-/// store rather than a wholesaler or other non-grocery vendor.
+/// Whether [storeName] looks like a real, consumer-facing grocery store in
+/// [currentMarket] rather than a wholesaler or other non-grocery vendor.
 bool isKnownGroceryStoreName(String storeName) {
   final lower = storeName.toLowerCase();
-  return _knownGroceryStoreNameFragments.any(lower.contains);
+  final fragments = _groceryStoreNameFragmentsByMarket[currentMarket] ?? const [];
+  return fragments.any(lower.contains);
 }
 
 /// The display name for a chain id (e.g. `'coop_extra'` -> `'Coop Extra'`),

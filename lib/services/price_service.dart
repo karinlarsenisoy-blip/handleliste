@@ -25,9 +25,12 @@ class PriceService {
   CollectionReference<Map<String, dynamic>> get _currentPricesRef =>
       _firestore.collection('currentPrices');
 
-  String _currentPriceDocId(String storeChainId, String itemNameNormalized) {
+  /// Market-prefixed so a future second market can never collide with (or
+  /// need to migrate) Norway's existing rows, even if a chain id happens to
+  /// be spelled the same way in both — see lib/config/market.dart.
+  String _currentPriceDocId(String market, String storeChainId, String itemNameNormalized) {
     final safeName = itemNameNormalized.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
-    return '$storeChainId-$safeName';
+    return '$market-$storeChainId-$safeName';
   }
 
   /// Contributes one anonymous price observation and refreshes the
@@ -37,7 +40,7 @@ class PriceService {
     await _observationsRef.add(observation.toMap());
 
     final docRef = _currentPricesRef.doc(
-      _currentPriceDocId(observation.storeChainId, observation.itemNameNormalized),
+      _currentPriceDocId(observation.market, observation.storeChainId, observation.itemNameNormalized),
     );
 
     await _firestore.runTransaction((transaction) async {
@@ -50,12 +53,22 @@ class PriceService {
         'price': observation.price,
         'lastObservedAt': Timestamp.fromDate(observation.observedAt),
         'sampleCount': previousCount + 1,
+        'market': observation.market,
       });
     });
   }
 
   /// Every chain's current price for items whose normalized name starts
   /// with [query] (e.g. "bana" matches "bananer"), cheapest first.
+  ///
+  /// Not yet filtered by market — harmless while `currentMarket` is the
+  /// only market any row is ever written with, but once a second market
+  /// exists this needs a `.where('market', isEqualTo: currentMarket)`
+  /// clause here (and a matching composite index alongside the
+  /// `itemNameNormalized` orderBy/startAt/endAt, since Firestore requires
+  /// one for an equality filter combined with a range on a different
+  /// field) — otherwise a Norwegian and Swedish price for the same item
+  /// name would be compared as if they were the same currency.
   Future<List<CurrentPrice>> searchCurrentPrices(String query) async {
     final normalized = normalizeItemName(query);
     if (normalized.isEmpty) return [];

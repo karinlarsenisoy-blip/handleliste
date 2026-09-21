@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../config/market.dart';
+
 /// Lowercases, trims and collapses whitespace so the same product typed
 /// slightly differently on two receipts still groups together. Deliberately
 /// simple for now — matching "Tine Lettmelk 1l" with "TINE LETTMELK 1,0% 1L"
@@ -16,12 +18,18 @@ class PriceObservation {
     required this.itemName,
     required this.price,
     required this.observedAt,
+    this.market = currentMarket,
   });
 
   final String storeChainId;
   final String itemName;
   final num price;
   final DateTime observedAt;
+
+  /// Which country/market this price is from (see lib/config/market.dart).
+  /// Defaults to the app's current single market so existing call sites
+  /// don't need to pass it — only matters once a second market exists.
+  final String market;
 
   String get itemNameNormalized => normalizeItemName(itemName);
 
@@ -32,5 +40,6 @@ class PriceObservation {
         'price': price,
         'observedAt': Timestamp.fromDate(observedAt),
         'contributedAt': FieldValue.serverTimestamp(),
+        'market': market,
       };
 }
