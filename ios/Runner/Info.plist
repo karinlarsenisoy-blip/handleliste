@@ -32,6 +32,10 @@
 	<string>Handleliste trenger tilgang til bildebiblioteket for å velge et kvitteringsbilde.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Handleliste bruker posisjonen din til å finne avstand til butikker i nærheten.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Handleliste bruker mikrofonen til å legge varer i en handleliste ved å si dem høyt.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Handleliste bruker talegjenkjenning til å skrive ned varenavn du sier høyt.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
