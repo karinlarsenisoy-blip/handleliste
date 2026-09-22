@@ -1,4 +1,5 @@
 import '../models/receipt_item.dart';
+import '../models/store.dart';
 
 /// Best-effort line-item parser for raw receipt text — whether that text
 /// came from OCR on a photographed receipt, or was pasted in by hand (e.g.
@@ -35,6 +36,24 @@ class ReceiptParser {
     'TERMINAL',
     'KASSE ',
   ];
+
+  /// Guesses which known chain a receipt is from by looking for its name
+  /// printed literally in the text — real receipts (photographed or
+  /// exported from a store's own app) almost always print the chain's name
+  /// near the top ("KIWI STORGATA", "COOP EXTRA X", ...), so the user
+  /// shouldn't have to tell the app something it can just read. Returns
+  /// null (never "Annet") when nothing matches, so the caller can fall back
+  /// to whatever was already selected rather than guessing wrong — this is
+  /// a convenience default, not something to trust blindly, which is why
+  /// the store picker stays visible and editable regardless.
+  static Store? detectStore(String rawText) {
+    final upperText = rawText.toUpperCase();
+    for (final store in knownStores) {
+      if (store.id == 'annet') continue;
+      if (upperText.contains(store.name.toUpperCase())) return store;
+    }
+    return null;
+  }
 
   /// Parses [rawText] into a best-effort list of purchased items.
   static List<ReceiptItem> parse(String rawText) {

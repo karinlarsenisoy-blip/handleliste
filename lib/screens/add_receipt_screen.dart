@@ -123,6 +123,8 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
           : await _ocrService.recognizeText(photo.path);
       _rawTextController.text = text;
       _source = ReceiptSource.photo;
+      final detectedStore = ReceiptParser.detectStore(text);
+      if (detectedStore != null) _store = detectedStore;
       _parseText();
     } catch (e) {
       if (mounted) {

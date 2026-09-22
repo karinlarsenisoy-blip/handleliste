@@ -91,4 +91,28 @@ Pant                       -2,00
       expect(items[0].price, 32.90);
     });
   });
+
+  group('ReceiptParser.detectStore', () {
+    test('recognizes the chain name printed in a real receipt header', () {
+      const raw = '''
+KIWI STORGATA
+Org.nr 123 456 789
+Egg 12pk                   45,90
+''';
+      expect(ReceiptParser.detectStore(raw)!.name, 'Kiwi');
+    });
+
+    test('distinguishes between Coop sub-brands rather than just matching "Coop"', () {
+      expect(ReceiptParser.detectStore('COOP EXTRA SAGENE\nMelk 24,90')!.name, 'Coop Extra');
+      expect(ReceiptParser.detectStore('COOP MEGA STORO\nMelk 24,90')!.name, 'Coop Mega');
+    });
+
+    test('is not case-sensitive', () {
+      expect(ReceiptParser.detectStore('rema 1000 sentrum\nBrød 32,90')!.name, 'Rema 1000');
+    });
+
+    test('never detects "Annet" — returns null when nothing matches', () {
+      expect(ReceiptParser.detectStore('IKEA FAMILY\nBillys hylle 299'), isNull);
+    });
+  });
 }
