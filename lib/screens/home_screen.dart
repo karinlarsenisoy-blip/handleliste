@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../services/cheapest_store_service.dart';
+import '../services/item_service.dart';
+import '../services/list_service.dart';
 import '../services/receipt_service.dart';
 import '../widgets/guest_gate.dart';
+import '../widgets/list_picker.dart';
 import '../widgets/product_name_field.dart';
 import 'add_receipt_screen.dart';
 import 'profile_screen.dart';
@@ -22,13 +25,19 @@ class HomeScreen extends StatefulWidget {
     required this.isAnonymous,
     CheapestStoreService? cheapestStoreService,
     ReceiptService? receiptService,
+    ListService? listService,
+    ItemService? itemService,
   })  : cheapestStoreService = cheapestStoreService ?? CheapestStoreService(),
-        receiptService = receiptService ?? ReceiptService();
+        receiptService = receiptService ?? ReceiptService(),
+        listService = listService ?? ListService(),
+        itemService = itemService ?? ItemService();
 
   final String uid;
   final bool isAnonymous;
   final CheapestStoreService cheapestStoreService;
   final ReceiptService receiptService;
+  final ListService listService;
+  final ItemService itemService;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -80,6 +89,36 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _addSearchedItemToList() async {
+    final name = _searchedName;
+    if (name == null) return;
+
+    if (widget.isAnonymous) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const GuestGateScreen(message: 'legge varer i en handleliste')),
+      );
+      return;
+    }
+
+    final lists = await widget.listService.watchLists(widget.uid).first;
+    if (!mounted) return;
+    if (lists.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Du har ingen lister ennå — lag en først.')));
+      return;
+    }
+
+    final list = await pickList(context, lists);
+    if (list == null || !mounted) return;
+
+    await widget.itemService.addItem(widget.uid, list.id, name);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$name lagt til i «${list.name}»')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -126,6 +165,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
+            // Shown regardless of whether a price was found — you might not
+            // have any price data for this item yet, but you should still
+            // be able to add it to a list, same as typing it in there
+            // directly would let you do.
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: _addSearchedItemToList,
+                icon: const Icon(Icons.add),
+                label: Text('Legg «$_searchedName» i en handleliste'),
+              ),
+            ),
           ],
           const Divider(height: 32),
           Card(
