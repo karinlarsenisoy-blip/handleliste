@@ -57,6 +57,19 @@ class AppTheme {
         foregroundColor: _onPrimary,
         titleTextStyle: GoogleFonts.bricolageGrotesque(fontWeight: FontWeight.w700, fontSize: 20, color: _onPrimary),
       ),
+      // A TabBar living in an AppBar's `bottom` (every list-tabs screen)
+      // sits directly on the same dark teal as the AppBar itself, but
+      // Material 3's default TabBar coloring assumes it's on a light
+      // `surface` background: without this, the selected tab's label is
+      // drawn in `colorScheme.primary` — the exact same color as the AppBar
+      // behind it — making it disappear entirely, and unselected labels
+      // read as low-contrast gray. Explicit light-on-dark colors here fix
+      // both.
+      tabBarTheme: TabBarThemeData(
+        labelColor: _onPrimary,
+        unselectedLabelColor: _onPrimary.withValues(alpha: 0.7),
+        indicatorColor: _onPrimary,
+      ),
     );
   }
 }
