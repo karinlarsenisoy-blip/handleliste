@@ -2,7 +2,6 @@ workflows:
   android-workflow:
     name: Android
     max_build_duration: 30
-    instance_type: linux_x2
     environment:
       flutter: 3.47.4
       # KASSALAPP_API_KEY is added directly as an app-level environment
@@ -34,7 +33,6 @@ workflows:
   ios-workflow:
     name: iOS
     max_build_duration: 60
-    instance_type: mac_mini_m2
     environment:
       flutter: 3.47.4
       # Requires an Apple Developer Program account connected under Codemagic
