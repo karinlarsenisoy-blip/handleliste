@@ -74,7 +74,19 @@ class _ProductNameFieldState extends State<ProductNameField> {
       children: [
         TextField(
           controller: widget.controller,
-          decoration: InputDecoration(hintText: widget.hintText),
+          decoration: InputDecoration(
+            hintText: widget.hintText,
+            prefixIcon: const Icon(Icons.search),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(999)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+            ),
+          ),
           onChanged: _onChanged,
           onSubmitted: (value) {
             setState(() => _suggestions = []);

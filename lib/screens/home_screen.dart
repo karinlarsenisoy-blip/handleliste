@@ -5,6 +5,7 @@ import '../services/cheapest_store_service.dart';
 import '../services/item_service.dart';
 import '../services/list_service.dart';
 import '../services/receipt_service.dart';
+import '../theme.dart';
 import '../widgets/guest_gate.dart';
 import '../widgets/list_picker.dart';
 import '../widgets/product_name_field.dart';
@@ -48,6 +49,25 @@ class HomeScreen extends StatefulWidget {
 }
 
 typedef _StorePrice = ({String storeName, num price, DateTime lastObservedAt});
+
+/// A small, fixed color per well-known chain so a result card reads at a
+/// glance ("that's the green one, Kiwi") instead of every row looking the
+/// same — a deliberately simple stand-in for real chain logos, which we
+/// don't have redistribution rights to bundle into the app.
+const _storeColors = {
+  'Kiwi': Color(0xFF2E9E4F),
+  'Rema 1000': Color(0xFF1F5FBF),
+  'Meny': Color(0xFFC0142B),
+  'Coop Extra': Color(0xFF0F6B3C),
+  'Coop Mega': Color(0xFF0F6B3C),
+  'Coop Prix': Color(0xFF0F6B3C),
+  'Coop Obs': Color(0xFF0F6B3C),
+  'Spar': Color(0xFF6B8E23),
+  'Bunnpris': Color(0xFF7A4FBF),
+  'Joker': Color(0xFFE08A00),
+};
+
+Color _storeColor(String storeName) => _storeColors[storeName] ?? const Color(0xFF1B5E63);
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
@@ -162,6 +182,14 @@ class _HomeScreenState extends State<HomeScreen> {
               for (final result in _results!)
                 Card(
                   child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: _storeColor(result.storeName),
+                      foregroundColor: Colors.white,
+                      child: Text(
+                        result.storeName[0].toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
                     title: Text(result.storeName),
                     subtitle: Text(_freshnessLabel(result.lastObservedAt)),
                     trailing: Text(
@@ -187,7 +215,11 @@ class _HomeScreenState extends State<HomeScreen> {
           const Divider(height: 32),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
+              leading: CircleAvatar(
+                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                child: const Icon(Icons.camera_alt_outlined),
+              ),
               title: const Text('Skann en kvittering'),
               subtitle: const Text('Bidra anonymt til prisene alle ser'),
               onTap: () => _openOrGate(
@@ -200,7 +232,11 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 8),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.mic_none),
+              leading: CircleAvatar(
+                backgroundColor: AppTheme.savingsAccent.withValues(alpha: 0.12),
+                foregroundColor: AppTheme.savingsAccent,
+                child: const Icon(Icons.mic_none),
+              ),
               title: const Text('Si varenavn til en liste'),
               subtitle: const Text('Si varenavn ett og ett — fungerer i Chrome/Edge'),
               onTap: () => _openOrGate(

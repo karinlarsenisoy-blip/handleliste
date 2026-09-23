@@ -5,11 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 /// grass-green — that read as near-identical to competitor SeSum's own
 /// green once seen live), a coral savings-accent reserved for the app's one
 /// big "go do this" moment (see [savingsAccent] and where it's used), and a
-/// friendly display face paired with a calm body face. Deliberately doesn't
-/// yet touch how price figures/list rows are set (the "kvittering"
-/// receipt-line styling) — that part is tied to the Handletur/trip screens,
-/// which are still due to change once real routing (Fase B) lands, so it
-/// stays a separate pass.
+/// friendly display face paired with a calm body face.
+///
+/// Softened further (rounder cards, pill-shaped inputs) after comparing
+/// design mockups against SeSum directly — a "kvittering" (receipt-style)
+/// item row was mocked up alongside a dark mode at the same time and both
+/// were explicitly turned down in favor of these plain, light, rounded
+/// cards, so neither is implemented here.
 class AppTheme {
   AppTheme._();
 
@@ -69,6 +71,32 @@ class AppTheme {
         labelColor: _onPrimary,
         unselectedLabelColor: _onPrimary.withValues(alpha: 0.7),
         indicatorColor: _onPrimary,
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: Colors.white,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: colorScheme.outlineVariant),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: _primary, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       ),
     );
   }
