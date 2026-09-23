@@ -48,7 +48,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-typedef _StorePrice = ({String storeName, num price, DateTime lastObservedAt});
+typedef _StorePrice = ({String storeName, num price, DateTime lastObservedAt, String itemName});
 
 /// A small, fixed color per well-known chain so a result card reads at a
 /// glance ("that's the green one, Kiwi") instead of every row looking the
@@ -82,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'Sett for ${age.inDays} dager siden';
   }
 
-  Future<void> _search(String name, {String? imageUrl}) async {
+  Future<void> _search(String name, {String? imageUrl, bool fromSuggestion = false}) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
     setState(() {
@@ -190,8 +190,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
-                    title: Text(result.storeName),
-                    subtitle: Text(_freshnessLabel(result.lastObservedAt)),
+                    title: Text(result.itemName),
+                    subtitle: Text('${result.storeName} · ${_freshnessLabel(result.lastObservedAt)}'),
                     trailing: Text(
                       '${result.price.toStringAsFixed(2)} kr',
                       style: Theme.of(context).textTheme.titleMedium,

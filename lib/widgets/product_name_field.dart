@@ -9,7 +9,7 @@ import '../services/product_suggestion_service.dart';
 /// known products (with photos) as you type — e.g. typing "melk" lists the
 /// milk variants known to Open Food Facts. Picking one fills the field with
 /// its name; you can otherwise just keep typing free text and ignore it.
-typedef ProductNameSubmitted = void Function(String name, {String? imageUrl});
+typedef ProductNameSubmitted = void Function(String name, {String? imageUrl, bool fromSuggestion});
 
 class ProductNameField extends StatefulWidget {
   const ProductNameField({
@@ -58,7 +58,7 @@ class _ProductNameFieldState extends State<ProductNameField> {
   void _selectSuggestion(ProductSuggestion suggestion) {
     widget.controller.text = suggestion.name;
     setState(() => _suggestions = []);
-    widget.onSubmitted(suggestion.name, imageUrl: suggestion.imageUrl);
+    widget.onSubmitted(suggestion.name, imageUrl: suggestion.imageUrl, fromSuggestion: true);
   }
 
   @override
@@ -77,20 +77,15 @@ class _ProductNameFieldState extends State<ProductNameField> {
           decoration: InputDecoration(
             hintText: widget.hintText,
             prefixIcon: const Icon(Icons.search),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(999)),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(999),
-              borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(999),
-              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-            ),
           ),
           onChanged: _onChanged,
           onSubmitted: (value) {
-            setState(() => _suggestions = []);
-            widget.onSubmitted(value);
+            // With suggestions showing, Enter must not guess which product
+            // was meant — the whole point of this dropdown is picking the
+            // exact product, so free-typed text only submits once there's
+            // nothing left to choose from.
+            if (_suggestions.isNotEmpty) return;
+            widget.onSubmitted(value, fromSuggestion: false);
           },
         ),
         if (_isLoading)
@@ -98,7 +93,14 @@ class _ProductNameFieldState extends State<ProductNameField> {
             padding: EdgeInsets.only(top: 4),
             child: LinearProgressIndicator(minHeight: 2),
           ),
-        if (_suggestions.isNotEmpty)
+        if (_suggestions.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 4),
+            child: Text(
+              'Velg riktig vare for å se pris:',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
           Container(
             constraints: const BoxConstraints(maxHeight: 220),
             margin: const EdgeInsets.only(top: 4),
@@ -174,6 +176,7 @@ class _ProductNameFieldState extends State<ProductNameField> {
               },
             ),
           ),
+        ],
       ],
     );
   }

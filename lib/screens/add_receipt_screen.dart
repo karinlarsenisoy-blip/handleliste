@@ -294,7 +294,7 @@ class _AddReceiptScreenState extends State<AddReceiptScreen> {
                     child: ProductNameField(
                       controller: _items[i].nameController,
                       hintText: 'Varenavn',
-                      onSubmitted: (_, {imageUrl}) {},
+                      onSubmitted: (_, {imageUrl, fromSuggestion = false}) {},
                     ),
                   ),
                   const SizedBox(width: 8),

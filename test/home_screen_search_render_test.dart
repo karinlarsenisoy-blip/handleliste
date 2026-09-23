@@ -17,13 +17,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _FixedCheapestStoreService extends CheapestStoreService {
   _FixedCheapestStoreService([this._results]) : super(priceService: PriceService(firestore: FakeFirebaseFirestore()));
 
-  final List<({String storeName, num price, DateTime lastObservedAt})>? _results;
+  final List<({String storeName, num price, DateTime lastObservedAt, String itemName})>? _results;
 
   @override
-  Future<List<({String storeName, num price, DateTime lastObservedAt})>> pricesForItem(String itemName) async {
+  Future<List<({String storeName, num price, DateTime lastObservedAt, String itemName})>> pricesForItem(
+    String itemName,
+  ) async {
     return _results ??
         [
-          (storeName: 'Kiwi', price: 33.4, lastObservedAt: DateTime.now()),
+          (storeName: 'Kiwi', price: 33.4, lastObservedAt: DateTime.now(), itemName: 'Baconpostei ovnsbakt 185g mills'),
         ];
   }
 }
@@ -49,7 +51,8 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
-    expect(find.text('Kiwi'), findsOneWidget);
+    expect(find.text('Baconpostei ovnsbakt 185g mills'), findsOneWidget);
+    expect(find.textContaining('Kiwi'), findsOneWidget);
     expect(find.text('33.40 kr'), findsOneWidget);
   });
 
@@ -101,8 +104,8 @@ void main() {
         uid: 'test-uid',
         isAnonymous: true,
         cheapestStoreService: _FixedCheapestStoreService([
-          (storeName: 'Kiwi', price: 24.90, lastObservedAt: DateTime.now()),
-          (storeName: 'Meny', price: 19.90, lastObservedAt: DateTime.now()),
+          (storeName: 'Kiwi', price: 24.90, lastObservedAt: DateTime.now(), itemName: 'Tine Lettmelk 1l'),
+          (storeName: 'Meny', price: 19.90, lastObservedAt: DateTime.now(), itemName: 'Tine Lettmelk 1l'),
         ]),
         receiptService: ReceiptService(firestore: firestore),
         listService: ListService(firestore: firestore),
@@ -116,7 +119,7 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
-    expect(find.text('Kiwi'), findsOneWidget);
-    expect(find.text('Meny'), findsNothing);
+    expect(find.textContaining('Kiwi'), findsOneWidget);
+    expect(find.textContaining('Meny'), findsNothing);
   });
 }

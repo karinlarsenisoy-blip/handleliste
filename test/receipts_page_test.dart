@@ -15,10 +15,12 @@ class _FixedCheapestStoreService extends CheapestStoreService {
   _FixedCheapestStoreService(this.byItemName)
       : super(priceService: PriceService(firestore: FakeFirebaseFirestore()));
 
-  final Map<String, List<({String storeName, num price, DateTime lastObservedAt})>> byItemName;
+  final Map<String, List<({String storeName, num price, DateTime lastObservedAt, String itemName})>> byItemName;
 
   @override
-  Future<List<({String storeName, num price, DateTime lastObservedAt})>> pricesForItem(String itemName) async {
+  Future<List<({String storeName, num price, DateTime lastObservedAt, String itemName})>> pricesForItem(
+    String itemName,
+  ) async {
     return byItemName[itemName] ?? [];
   }
 }
@@ -47,9 +49,9 @@ void main() {
 
     final cheapestStoreService = _FixedCheapestStoreService({
       // Paid 24.90 for Melk - Rema currently has it cheaper.
-      'Melk': [(storeName: 'Rema 1000', price: 19.90, lastObservedAt: DateTime.now())],
+      'Melk': [(storeName: 'Rema 1000', price: 19.90, lastObservedAt: DateTime.now(), itemName: 'Melk')],
       // Paid 32.90 for Brød - nothing cheaper known anywhere.
-      'Brød': [(storeName: 'Kiwi', price: 32.90, lastObservedAt: DateTime.now())],
+      'Brød': [(storeName: 'Kiwi', price: 32.90, lastObservedAt: DateTime.now(), itemName: 'Brød')],
     });
 
     await tester.pumpWidget(MaterialApp(
@@ -83,7 +85,7 @@ void main() {
     );
 
     final cheapestStoreService = _FixedCheapestStoreService({
-      'Egg': [(storeName: 'Rema 1000', price: 49.90, lastObservedAt: DateTime.now())],
+      'Egg': [(storeName: 'Rema 1000', price: 49.90, lastObservedAt: DateTime.now(), itemName: 'Egg')],
     });
 
     await tester.pumpWidget(MaterialApp(

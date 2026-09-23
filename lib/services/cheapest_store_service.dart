@@ -14,7 +14,7 @@ import 'price_service.dart';
 /// user is about to shop.
 const _maxPriceAge = Duration(days: 30);
 
-typedef _PriceEntry = ({String storeName, num price, DateTime lastObservedAt});
+typedef _PriceEntry = ({String storeName, num price, DateTime lastObservedAt, String itemName});
 
 /// For a list of item names, works out where to buy it cheapest right now —
 /// combining our own crowdsourced [PriceService] data (currently the only
@@ -60,7 +60,12 @@ class CheapestStoreService {
       if (!_isFresh(price.lastObservedAt)) continue;
       final storeName = displayNameForChainId(price.storeChainId);
       if (!seenStores.add(storeName)) continue;
-      results.add((storeName: storeName, price: price.price, lastObservedAt: price.lastObservedAt));
+      results.add((
+        storeName: storeName,
+        price: price.price,
+        lastObservedAt: price.lastObservedAt,
+        itemName: price.itemName,
+      ));
     }
 
     if (KassalappService.isConfigured) {
@@ -78,7 +83,12 @@ class CheapestStoreService {
           if (!_isFresh(suggestion.lastObservedAt)) continue;
           final storeName = canonicalStoreName(rawStoreName);
           if (!seenStores.add(storeName)) continue;
-          results.add((storeName: storeName, price: price, lastObservedAt: suggestion.lastObservedAt!));
+          results.add((
+            storeName: storeName,
+            price: price,
+            lastObservedAt: suggestion.lastObservedAt!,
+            itemName: suggestion.name,
+          ));
         }
       } catch (_) {
         // Kassalapp is a supplementary source — keep going with what we
@@ -91,8 +101,14 @@ class CheapestStoreService {
 
   /// Every store price we currently know for [itemName], cheapest first —
   /// for a standalone "search one item, see where it's cheapest" lookup
-  /// (see HomeScreen), independent of any shopping list.
-  Future<List<({String storeName, num price, DateTime lastObservedAt})>> pricesForItem(String itemName) async {
+  /// (see HomeScreen), independent of any shopping list. [itemName] is the
+  /// *searched* query ("melk"); each entry's own `itemName` is the actual
+  /// matched product name ("Tine Lettmelk 1l") — for a generic query, a
+  /// price with no visible product name attached is not verifiable as
+  /// actually being what was searched for.
+  Future<List<({String storeName, num price, DateTime lastObservedAt, String itemName})>> pricesForItem(
+    String itemName,
+  ) async {
     final entries = await _pricesForItem(itemName);
     return [...entries]..sort((a, b) => a.price.compareTo(b.price));
   }

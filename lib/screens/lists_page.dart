@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 import '../models/shopping_list.dart';
 import '../services/item_service.dart';
 import '../services/list_service.dart';
-import 'cheapest_store_screen.dart';
 import 'list_items_view.dart';
 
 /// Top-level screen: a row of tabs ("Ukehandel", "Bursdag", ...), each
 /// showing its own independent flat list of items — no category/folder
-/// level (see ItemService's doc for why). List-specific actions (rename,
-/// delete, "Finn billigst" for the selected list) live in one overflow
-/// menu rather than a row of AppBar icons — Favoritter and Profil moved to
-/// HomeShell's own navigation, since they aren't specific to one list.
+/// level (see ItemService's doc for why). "Finn billigst" is a prominent
+/// docked button on the list itself (see ListItemsView) since it's the
+/// app's single biggest call-to-action; rename/delete stay tucked in one
+/// overflow menu — Favoritter and Profil moved to HomeShell's own
+/// navigation, since they aren't specific to one list.
 class ListsPage extends StatefulWidget {
   ListsPage({
     super.key,
@@ -29,7 +29,7 @@ class ListsPage extends StatefulWidget {
   State<ListsPage> createState() => _ListsPageState();
 }
 
-enum _ListAction { rename, delete, cheapest }
+enum _ListAction { rename, delete }
 
 class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
   TabController? _tabController;
@@ -113,23 +113,12 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
     );
   }
 
-  void _openCheapestStore(ShoppingList current) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CheapestStoreScreen(uid: widget.uid, listId: current.id, listName: current.name),
-      ),
-    );
-  }
-
   void _handleListAction(_ListAction action, ShoppingList current) {
     switch (action) {
       case _ListAction.rename:
         _renameCurrentList(current);
       case _ListAction.delete:
         _deleteCurrentList(current);
-      case _ListAction.cheapest:
-        _openCheapestStore(current);
     }
   }
 
@@ -172,10 +161,6 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
                   onSelected: (action) => _handleListAction(action, current),
                   itemBuilder: (context) => const [
                     PopupMenuItem(
-                      value: _ListAction.cheapest,
-                      child: ListTile(leading: Icon(Icons.savings_outlined), title: Text('Finn billigst')),
-                    ),
-                    PopupMenuItem(
                       value: _ListAction.rename,
                       child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Endre navn')),
                     ),
@@ -201,6 +186,7 @@ class _ListsPageState extends State<ListsPage> with TickerProviderStateMixin {
                           key: ValueKey(list.id),
                           uid: widget.uid,
                           listId: list.id,
+                          listName: list.name,
                           itemService: widget.itemService,
                         ),
                       )
