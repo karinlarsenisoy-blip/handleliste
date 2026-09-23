@@ -6,24 +6,31 @@ import 'package:handleliste_app/services/cheapest_store_service.dart';
 import 'package:handleliste_app/services/item_service.dart';
 import 'package:handleliste_app/services/list_service.dart';
 import 'package:handleliste_app/services/price_service.dart';
+import 'package:handleliste_app/services/chain_preferences_service.dart';
 import 'package:handleliste_app/services/receipt_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Returns a fixed result set instead of hitting Firestore/Kassalapp — for
 /// checking exactly what HomeScreen renders for a known, real price value
 /// (33.4, matching a real "Baconpostei ovnsbakt 185g mills" entry a user
 /// reported seeing with no visible price after a live search).
 class _FixedCheapestStoreService extends CheapestStoreService {
-  _FixedCheapestStoreService() : super(priceService: PriceService(firestore: FakeFirebaseFirestore()));
+  _FixedCheapestStoreService([this._results]) : super(priceService: PriceService(firestore: FakeFirebaseFirestore()));
+
+  final List<({String storeName, num price, DateTime lastObservedAt})>? _results;
 
   @override
   Future<List<({String storeName, num price, DateTime lastObservedAt})>> pricesForItem(String itemName) async {
-    return [
-      (storeName: 'Kiwi', price: 33.4, lastObservedAt: DateTime.now()),
-    ];
+    return _results ??
+        [
+          (storeName: 'Kiwi', price: 33.4, lastObservedAt: DateTime.now()),
+        ];
   }
 }
 
 void main() {
+  SharedPreferences.setMockInitialValues({});
+
   testWidgets('HomeScreen search result shows the store name AND the price', (tester) async {
     final firestore = FakeFirebaseFirestore();
     await tester.pumpWidget(MaterialApp(
@@ -81,5 +88,35 @@ void main() {
     final items = await itemService.watchItems(uid, lists.single.id).first;
     expect(items.single.name, 'baconpostei');
     expect(find.textContaining('lagt til i «Ukehandel»'), findsOneWidget);
+  });
+
+  testWidgets('a chain the user has opted out of is filtered out of the search results', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'excludedStoreNames': ['Meny'],
+    });
+    final firestore = FakeFirebaseFirestore();
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(
+        uid: 'test-uid',
+        isAnonymous: true,
+        cheapestStoreService: _FixedCheapestStoreService([
+          (storeName: 'Kiwi', price: 24.90, lastObservedAt: DateTime.now()),
+          (storeName: 'Meny', price: 19.90, lastObservedAt: DateTime.now()),
+        ]),
+        receiptService: ReceiptService(firestore: firestore),
+        listService: ListService(firestore: firestore),
+        itemService: ItemService(firestore: firestore),
+        chainPreferencesService: ChainPreferencesService(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'melk');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kiwi'), findsOneWidget);
+    expect(find.text('Meny'), findsNothing);
   });
 }

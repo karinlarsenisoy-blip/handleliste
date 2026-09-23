@@ -7,8 +7,14 @@ import 'package:handleliste_app/services/item_service.dart';
 import 'package:handleliste_app/services/list_service.dart';
 import 'package:handleliste_app/services/price_service.dart';
 import 'package:handleliste_app/services/receipt_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  // ChainPreferencesService reads shared_preferences - without this, its
+  // first read in a widget test has no platform binding to answer it and
+  // hangs forever instead of resolving.
+  SharedPreferences.setMockInitialValues({});
+
   Future<void> pumpHomeScreen(WidgetTester tester, {required bool isAnonymous}) async {
     final firestore = FakeFirebaseFirestore();
     await tester.pumpWidget(MaterialApp(

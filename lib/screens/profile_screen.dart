@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../services/account_service.dart';
 import '../services/test_data_seeder.dart';
+import 'chain_preferences_screen.dart';
 import 'sign_in_screen.dart';
 
 /// Standard account/profile functionality: display name, email (read-only),
@@ -337,6 +338,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               FirebaseAuth.instance.signOut();
               Navigator.pop(context);
             },
+          ),
+          const Divider(height: 40),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.storefront_outlined),
+            title: const Text('Butikker å sammenligne'),
+            subtitle: const Text('Skru av kjeder du aldri handler hos'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ChainPreferencesScreen()),
+            ),
           ),
           const Divider(height: 40),
           ListTile(

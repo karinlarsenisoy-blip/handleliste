@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/chain_preferences_service.dart';
 import '../services/cheapest_store_service.dart';
 import '../services/item_service.dart';
 import '../services/list_service.dart';
@@ -27,10 +28,12 @@ class HomeScreen extends StatefulWidget {
     ReceiptService? receiptService,
     ListService? listService,
     ItemService? itemService,
+    ChainPreferencesService? chainPreferencesService,
   })  : cheapestStoreService = cheapestStoreService ?? CheapestStoreService(),
         receiptService = receiptService ?? ReceiptService(),
         listService = listService ?? ListService(),
-        itemService = itemService ?? ItemService();
+        itemService = itemService ?? ItemService(),
+        chainPreferencesService = chainPreferencesService ?? ChainPreferencesService();
 
   final String uid;
   final bool isAnonymous;
@@ -38,6 +41,7 @@ class HomeScreen extends StatefulWidget {
   final ReceiptService receiptService;
   final ListService listService;
   final ItemService itemService;
+  final ChainPreferencesService chainPreferencesService;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -67,9 +71,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _results = null;
     });
     final results = await widget.cheapestStoreService.pricesForItem(trimmed);
+    final excluded = await widget.chainPreferencesService.getExcludedStoreNames();
     if (!mounted) return;
     setState(() {
-      _results = results;
+      _results = excluded.isEmpty ? results : results.where((r) => !excluded.contains(r.storeName)).toList();
       _isSearching = false;
     });
   }
