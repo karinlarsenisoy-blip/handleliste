@@ -5,12 +5,10 @@ workflows:
     instance_type: linux_x2
     environment:
       flutter: 3.47.4
-      groups:
-        # Create this group in Codemagic (Teams > your team > Environment
-        # variables) with one variable, KASSALAPP_API_KEY — same key already
-        # used in config/kassalapp.json locally and in the GitHub Actions
-        # web-deploy workflow.
-        - kassalapp
+      # KASSALAPP_API_KEY is added directly as an app-level environment
+      # variable in Codemagic (no named group) — same raw key value already
+      # used in config/kassalapp.json locally and in the GitHub Actions
+      # web-deploy workflow.
     scripts:
       - name: Write Kassalapp config
         # Mirrors .github/workflows/ci.yml's approach: built via jq (not a
@@ -39,8 +37,6 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       flutter: 3.47.4
-      groups:
-        - kassalapp
       # Requires an Apple Developer Program account connected under Codemagic
       # Team settings > Code signing identities > iOS, plus an App Store
       # Connect API key added there — this workflow will fail until that's
