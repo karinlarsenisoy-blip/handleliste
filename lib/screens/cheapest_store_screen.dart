@@ -617,6 +617,10 @@ class _CheapestStoreScreenState extends State<CheapestStoreScreen> {
                 stops: stops,
                 itemLookup: itemLookup,
                 itemService: widget.itemService,
+                nearestBranches: {
+                  for (final stop in stops)
+                    if (_nearestBranch(stop.key) != null) stop.key: _nearestBranch(stop.key)!.location,
+                },
               ),
             ),
           ),

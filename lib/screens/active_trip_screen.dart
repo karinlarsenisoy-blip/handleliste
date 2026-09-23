@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/item.dart';
 import '../models/shopping_split.dart';
+import '../models/store_location.dart';
 import '../services/item_service.dart';
 
 /// The confirmed, locked-in version of a "Handletur" plan. Once the user
@@ -24,6 +25,7 @@ class ActiveTripScreen extends StatefulWidget {
     required this.stops,
     required this.itemLookup,
     required this.itemService,
+    this.nearestBranches = const {},
   });
 
   final String uid;
@@ -32,6 +34,15 @@ class ActiveTripScreen extends StatefulWidget {
   final List<MapEntry<String, List<ItemAssignment>>> stops;
   final Map<String, Item> itemLookup;
   final ItemService itemService;
+
+  /// The specific physical branch (address, not just the chain) the route
+  /// planning screen matched each stop to — e.g. "Kiwi" alone doesn't tell
+  /// you which of the several Kiwi stores in town to actually drive to, so
+  /// this is carried over from CheapestStoreScreen's own nearest-branch
+  /// lookup rather than re-derived here. A chain missing from this map
+  /// (no location permission was used, or no known branch nearby) just
+  /// falls back to showing its bare chain name, same as before.
+  final Map<String, StoreLocation> nearestBranches;
 
   @override
   State<ActiveTripScreen> createState() => _ActiveTripScreenState();
@@ -77,10 +88,30 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CircleAvatar(radius: 11, child: Text('${stopIndex + 1}', style: const TextStyle(fontSize: 12))),
                   const SizedBox(width: 8),
-                  Text(widget.stops[stopIndex].key, style: Theme.of(context).textTheme.titleSmall),
+                  Builder(builder: (context) {
+                    final chainName = widget.stops[stopIndex].key;
+                    final branch = widget.nearestBranches[chainName];
+                    if (branch == null) {
+                      return Text(chainName, style: Theme.of(context).textTheme.titleSmall);
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(branch.name, style: Theme.of(context).textTheme.titleSmall),
+                        if (branch.address != null)
+                          Text(
+                            branch.address!,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                      ],
+                    );
+                  }),
                 ],
               ),
             ),
