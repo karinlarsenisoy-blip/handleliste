@@ -1,0 +1,69 @@
+workflows:
+  android-workflow:
+    name: Android
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      flutter: 3.47.4
+      groups:
+        # Create this group in Codemagic (Teams > your team > Environment
+        # variables) with one variable, KASSALAPP_API_KEY — same key already
+        # used in config/kassalapp.json locally and in the GitHub Actions
+        # web-deploy workflow.
+        - kassalapp
+    scripts:
+      - name: Write Kassalapp config
+        # Mirrors .github/workflows/ci.yml's approach: built via jq (not a
+        # hand-quoted string) so a stray trailing newline in the secret can't
+        # produce invalid JSON and break the build.
+        script: |
+          printf '%s' "$KASSALAPP_API_KEY" | tr -d '\n\r' | jq -Rs '{"KASSALAPP_API_KEY": .}' > config/kassalapp.json
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Analyze
+        script: flutter analyze
+      - name: Run tests
+        script: flutter test
+      - name: Build APK
+        # Signed with the debug key for now (see android/app/build.gradle.kts's
+        # TODO) — fine for installing on your own device to test, but this
+        # needs a real release keystore (set up as an Android code signing
+        # identity in Codemagic) before it can go to the Play Store.
+        script: flutter build apk --release --dart-define-from-file=config/kassalapp.json
+    artifacts:
+      - build/app/outputs/**/*.apk
+
+  ios-workflow:
+    name: iOS
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: 3.47.4
+      groups:
+        - kassalapp
+      # Requires an Apple Developer Program account connected under Codemagic
+      # Team settings > Code signing identities > iOS, plus an App Store
+      # Connect API key added there — this workflow will fail until that's
+      # done. See project notes ("Steg B") for why this is a separate step
+      # from everything else here.
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: no.ktkappfabrikk.handlelisteApp
+    scripts:
+      - name: Write Kassalapp config
+        script: |
+          printf '%s' "$KASSALAPP_API_KEY" | tr -d '\n\r' | jq -Rs '{"KASSALAPP_API_KEY": .}' > config/kassalapp.json
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_DEVELOPMENT --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          flutter build ipa --release --dart-define-from-file=config/kassalapp.json \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa

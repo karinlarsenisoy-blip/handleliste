@@ -70,6 +70,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '87233152428',
     projectId: 'handleliste-f1659',
     storageBucket: 'handleliste-f1659.firebasestorage.app',
+    androidClientId: '87233152428-dm3ej4qv3nmmi7kmhhhg63apbbj160h6.apps.googleusercontent.com',
+    iosClientId: '87233152428-r3gmu5tep1fddotpml0hvrin5pvk4ojp.apps.googleusercontent.com',
     iosBundleId: 'no.ktkappfabrikk.handlelisteApp',
   );
 }
