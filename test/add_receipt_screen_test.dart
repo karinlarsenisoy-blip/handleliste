@@ -8,7 +8,9 @@ import 'package:handleliste_app/services/receipt_service.dart';
 void main() {
   const uid = 'test-uid';
 
-  testWidgets('the "Del prisene anonymt" switch is disabled once "Annet" (non-grocery) is selected', (tester) async {
+  testWidgets(
+      'defaults to "Annet" with sharing disabled, and enables sharing once a real grocery chain is picked',
+      (tester) async {
     final firestore = FakeFirebaseFirestore();
     await tester.pumpWidget(MaterialApp(
       home: AddReceiptScreen(
@@ -19,21 +21,22 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // Defaults to Kiwi — sharing starts enabled.
+    // Defaults to "Annet" — no chain assumed until one is detected/picked —
+    // so sharing starts disabled.
     var switchWidget = tester.widget<Switch>(find.byType(Switch));
-    expect(switchWidget.onChanged, isNotNull);
-    expect(switchWidget.value, isTrue);
-
-    await tester.tap(find.text('Kiwi'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Annet').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Annet').last);
-    await tester.pumpAndSettle();
-
-    switchWidget = tester.widget<Switch>(find.byType(Switch));
     expect(switchWidget.onChanged, isNull, reason: 'sharing must not be toggleable for a non-grocery store');
     expect(switchWidget.value, isFalse);
     expect(find.textContaining('Ikke tilgjengelig for «Annet»'), findsOneWidget);
+
+    await tester.tap(find.text('Annet'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Kiwi').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kiwi').last);
+    await tester.pumpAndSettle();
+
+    switchWidget = tester.widget<Switch>(find.byType(Switch));
+    expect(switchWidget.onChanged, isNotNull);
+    expect(switchWidget.value, isTrue);
   });
 }

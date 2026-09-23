@@ -16,7 +16,18 @@ class ReceiptParser {
     r'(-?\d+(?:[.,]\d{1,2})?)\s*(?:kr|,-)?\s*$',
     caseSensitive: false,
   );
-  static final RegExp _quantityOnly = RegExp(r'^\d+([.,]\d+)?\s*(stk|kg|x)\b', caseSensitive: false);
+  static final RegExp _quantityOnly = RegExp(r'^\d+([.,]\d+)?\s*(stk|kg|x|\*)', caseSensitive: false);
+
+  /// No real grocery/retail item costs more than this — a "price" above it
+  /// is actually some other number on the receipt that happens to end in
+  /// digits (a card terminal's AID/reference number, a barcode, a phone
+  /// number...). Card-payment footers in particular print numbers with 15+
+  /// digits (e.g. an EMV AID like "D5780000210100200000001") that
+  /// [_trailingPrice] happily matches as if it were a price — without this
+  /// guard, one such line turns the whole receipt's total into nonsense
+  /// like "578000006291928000000000 kr". This isn't chain-specific: almost
+  /// every Norwegian receipt paid by card prints this same kind of footer.
+  static const _maxPlausiblePrice = 50000;
 
   static const List<String> _skipKeywords = [
     'SUM',
@@ -28,13 +39,32 @@ class ReceiptParser {
     'KORTKJØP',
     'VIPPS',
     'KVITTERING',
+    'SALGSKVITTERING',
+    'KVITT.',
+    'BANK',
     'ORG.NR',
     'ORGNR',
+    'FORETAKSREGISTERET',
     'KASSERER',
+    'OPERATØR',
     'BUTIKK NR',
+    'BUTIKKNR',
+    'BUTIKKNAVN',
     'TAKK FOR',
     'TERMINAL',
+    'TERM. NR',
+    'TERM.NR',
     'KASSE ',
+    'ÅPNINGSTIDER',
+    'ANT. VARER',
+    'ANT.VARER',
+    'AID:',
+    'REF.:',
+    'OVERF',
+    'RESP.',
+    'GODKJENT',
+    'BAX:',
+    'TVR:',
   ];
 
   /// Guesses which known chain a receipt is from by looking for its name
@@ -81,6 +111,10 @@ class ReceiptParser {
       // (e.g. "Rabatt -5,00", "Pant -2,00") — not a purchasable item, so it
       // shouldn't become a fake line item worth +5,00 kr.
       if (price < 0) {
+        pendingName = null;
+        continue;
+      }
+      if (price > _maxPlausiblePrice) {
         pendingName = null;
         continue;
       }

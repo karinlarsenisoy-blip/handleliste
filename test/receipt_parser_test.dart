@@ -90,6 +90,56 @@ Pant                       -2,00
       expect(items[0].name, 'Cola 1,5l');
       expect(items[0].price, 32.90);
     });
+
+    test('does not let a card-terminal AID/reference number become an absurd item price', () {
+      // A real Biltema receipt (any store paid by card prints the same
+      // kind of footer) that previously produced a "5.78e+22 kr" total.
+      const raw = '''
+Biltema Norge avd 223 Fredrikstad
+Foretaksregisteret NO. 882692302 MVA
+Åpningstider: 7-21 (9-19) Tlf: 22 22 20 22
+
+SALGSKVITTERING
+
+Butikknr.                    223
+Butikknavn      Biltema Norge As
+Kvitt. 660939    19.09.2026 15:26:40
+Term. nr. 204
+Operatørnavn Florentina
+Herav mva 147.76         Ant. varer 3
+
+850478 TOALETTPAPIR. 530 M. 24-PK.
+1 * 99.90                        99.90
+84298 PAPIR TIL AIRFRYER. 50 STK.
+1 * 39.90                        39.90
+14972 VEKTSTANGSETT. 20.5 KG
+1 * 599.00                      599.00
+
+TOTALT Å BETALE                 738.80
+
+BANK                            738.80
+
+Bax: 40081437-369543
+19/09/2026 15:26          Overf.:434
+BankAxept Contactless   ********3330-0
+AID: D5780000210100200000001
+Ref.: 269718 062455 KC1 TVR:0000008000
+Resp.: 00
+GODKJENT
+
+0223020 4190926 01667138
+''';
+
+      final items = ReceiptParser.parse(raw);
+
+      // The three real products - nothing derived from the AID/Ref/barcode
+      // noise, and no price anywhere near the "5.78e+22" it used to produce.
+      expect(items, hasLength(3));
+      expect(items.map((i) => i.price), everyElement(lessThan(1000)));
+      expect(items[0].price, 99.90);
+      expect(items[1].price, 39.90);
+      expect(items[2].price, 599.00);
+    });
   });
 
   group('ReceiptParser.detectStore', () {

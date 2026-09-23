@@ -71,7 +71,10 @@ class _EditableItem {
 
 class _AddReceiptScreenState extends State<AddReceiptScreen> {
   final TextEditingController _rawTextController = TextEditingController();
-  Store _store = knownStores.first;
+  // Defaults to "Annet" rather than a specific chain — until a receipt is
+  // actually scanned and its chain detected (or picked manually), there's
+  // no reason to assume it's from any particular grocery store.
+  Store _store = knownStores.firstWhere((s) => s.id == 'annet');
   DateTime _purchasedAt = DateTime.now();
   final List<_EditableItem> _items = [];
   bool _isSaving = false;
