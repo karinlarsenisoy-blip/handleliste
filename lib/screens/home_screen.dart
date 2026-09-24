@@ -137,6 +137,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final list = await pickList(context, lists);
     if (list == null || !mounted) return;
 
+    // Closing the picker restores focus to whatever was last focused on
+    // this page — the search field — which reopens the keyboard even
+    // though nothing was typed into it. Unfocus again once the picker is
+    // actually gone, rather than relying on the earlier dropdown-tap
+    // unfocus to still hold by then.
+    FocusScope.of(context).unfocus();
+
     await widget.itemService.addItem(widget.uid, list.id, name);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
