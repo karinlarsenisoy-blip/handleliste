@@ -134,10 +134,11 @@ void main() {
     await listService.addList('test-uid', 'Ukehandel');
     final lists = await listService.watchLists('test-uid').first;
     await itemService.addItem('test-uid', lists.first.id, 'Melk');
+    final item = (await itemService.watchItems('test-uid', lists.first.id).first).single;
 
     await pumpListsPage(tester, listService: listService, itemService: itemService);
 
-    await tester.tap(find.byType(Checkbox));
+    await tester.tap(find.byKey(Key('check-${item.id}')));
     await tester.pumpAndSettle();
 
     final text = tester.widget<Text>(find.text('Melk'));

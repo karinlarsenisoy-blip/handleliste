@@ -100,6 +100,7 @@ class _ListItemsViewState extends State<ListItemsView> with AutomaticKeepAliveCl
               }
 
               return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 itemCount: items.length,
                 itemBuilder: (context, index) => ItemTile(
                   key: ValueKey(items[index].id),
