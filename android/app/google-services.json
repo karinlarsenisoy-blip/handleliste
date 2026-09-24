@@ -12,7 +12,12 @@
           "package_name": "com.example.handleliste_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "87233152428-tkff5ts9fsq5bs73vi6tkhgi7ogp5i1e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAPTvHdnz_hBbfDMnZ9JRiO9hnm2jnobMk"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "87233152428-tkff5ts9fsq5bs73vi6tkhgi7ogp5i1e.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "87233152428-fbvcu15gu7fucerqh9ccrctp754gcj4p.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompany.handleliste"
+              }
+            }
+          ]
         }
       }
     },
@@ -31,7 +48,20 @@
           "package_name": "com.mycompany.handleliste"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "87233152428-dm3ej4qv3nmmi7kmhhhg63apbbj160h6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mycompany.handleliste",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
+          "client_id": "87233152428-tkff5ts9fsq5bs73vi6tkhgi7ogp5i1e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAPTvHdnz_hBbfDMnZ9JRiO9hnm2jnobMk"
@@ -39,7 +69,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "87233152428-tkff5ts9fsq5bs73vi6tkhgi7ogp5i1e.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "87233152428-fbvcu15gu7fucerqh9ccrctp754gcj4p.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompany.handleliste"
+              }
+            }
+          ]
         }
       }
     },
@@ -50,7 +92,20 @@
           "package_name": "no.ktkappfabrikk.handleliste_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "87233152428-mgmkvk8damv7f5rves5lvtmtca8mojms.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "no.ktkappfabrikk.handleliste_app",
+            "certificate_hash": "942ffc6a70aed8895e798fe45b6530794b4ae195"
+          }
+        },
+        {
+          "client_id": "87233152428-tkff5ts9fsq5bs73vi6tkhgi7ogp5i1e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAPTvHdnz_hBbfDMnZ9JRiO9hnm2jnobMk"
@@ -58,7 +113,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "87233152428-tkff5ts9fsq5bs73vi6tkhgi7ogp5i1e.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "87233152428-fbvcu15gu7fucerqh9ccrctp754gcj4p.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompany.handleliste"
+              }
+            }
+          ]
         }
       }
     }

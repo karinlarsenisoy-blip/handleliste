@@ -45,6 +45,7 @@ dependencies:
   speech_to_text: ^7.5.0
   sentry_flutter: ^9.30.1
   shared_preferences: ^2.5.5
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:

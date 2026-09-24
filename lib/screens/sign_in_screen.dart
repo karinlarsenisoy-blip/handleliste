@@ -1,8 +1,28 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../utils/email_typo_checker.dart';
+
+/// The Firebase project's own auto-generated "Web client" OAuth id (not a
+/// secret — same category as a Firebase API key, see main.dart's Sentry DSN
+/// comment for why that's fine). On native platforms, `signInWithPopup`
+/// (below) doesn't exist at all — there's no browser popup to show — so
+/// Google sign-in there goes through the native Google Sign-In SDK instead,
+/// which needs this id as `serverClientId` to get back a Firebase-verifiable
+/// ID token rather than just an on-device account handle.
+const _googleWebClientId = '87233152428-tkff5ts9fsq5bs73vi6tkhgi7ogp5i1e.apps.googleusercontent.com';
+
+/// [GoogleSignIn.initialize] must be called exactly once per app process and
+/// awaited before any other call on the singleton — but this screen can be
+/// built more than once (e.g. reached again from a different guest gate), so
+/// this is memoized at the top level rather than redone in initState.
+Future<void>? _googleSignInInitFuture;
+Future<void> _ensureGoogleSignInInitialized() {
+  return _googleSignInInitFuture ??= GoogleSignIn.instance.initialize(serverClientId: _googleWebClientId);
+}
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -87,8 +107,23 @@ class _SignInScreenState extends State<SignInScreen> {
       _errorMessage = null;
     });
     try {
-      await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+      if (kIsWeb) {
+        // signInWithPopup only exists on web — there's no browser to pop a
+        // window over on Android/iOS, which is why it silently did nothing
+        // there before this platform split existed.
+        await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+      } else {
+        await _ensureGoogleSignInInitialized();
+        final account = await GoogleSignIn.instance.authenticate();
+        final idToken = account.authentication.idToken;
+        await FirebaseAuth.instance.signInWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+      }
       _closeIfPushed();
+    } on GoogleSignInException catch (e) {
+      // The user closing the account picker isn't an error worth surfacing.
+      if (e.code != GoogleSignInExceptionCode.canceled) {
+        setState(() => _errorMessage = 'Noe gikk galt med Google-innlogging. Prøv igjen.');
+      }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'account-exists-with-different-credential') {
         setState(() => _errorMessage =
