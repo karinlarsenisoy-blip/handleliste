@@ -18,6 +18,7 @@ class ProductNameField extends StatefulWidget {
     required this.hintText,
     required this.onSubmitted,
     this.suggestionService,
+    this.onSuggestionsChanged,
   });
 
   final TextEditingController controller;
@@ -27,6 +28,13 @@ class ProductNameField extends StatefulWidget {
   /// suggestion rather than typing free text — its photo.
   final ProductNameSubmitted onSubmitted;
   final ProductSuggestionService? suggestionService;
+
+  /// Fires whenever the suggestion dropdown goes from empty to non-empty or
+  /// back — lets a caller (e.g. an "add" button living outside this widget)
+  /// apply the same "pick from the list instead of guessing" rule this
+  /// field already enforces on its own Enter key, so there's no separate
+  /// button that quietly bypasses it.
+  final ValueChanged<bool>? onSuggestionsChanged;
 
   @override
   State<ProductNameField> createState() => _ProductNameFieldState();
@@ -38,26 +46,32 @@ class _ProductNameFieldState extends State<ProductNameField> {
   List<ProductSuggestion> _suggestions = [];
   bool _isLoading = false;
 
+  void _setSuggestions(List<ProductSuggestion> suggestions) {
+    final wasEmpty = _suggestions.isEmpty;
+    setState(() => _suggestions = suggestions);
+    if (suggestions.isEmpty != wasEmpty) {
+      widget.onSuggestionsChanged?.call(suggestions.isNotEmpty);
+    }
+  }
+
   void _onChanged(String text) {
     _debounce?.cancel();
     if (text.trim().length < 2) {
-      setState(() => _suggestions = []);
+      _setSuggestions([]);
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       setState(() => _isLoading = true);
       final results = await _service.search(text.trim());
       if (!mounted) return;
-      setState(() {
-        _suggestions = results;
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
+      _setSuggestions(results);
     });
   }
 
   void _selectSuggestion(ProductSuggestion suggestion) {
     widget.controller.text = suggestion.name;
-    setState(() => _suggestions = []);
+    _setSuggestions([]);
     widget.onSubmitted(suggestion.name, imageUrl: suggestion.imageUrl, fromSuggestion: true);
   }
 
@@ -97,7 +111,7 @@ class _ProductNameFieldState extends State<ProductNameField> {
           Padding(
             padding: const EdgeInsets.only(top: 8, left: 4),
             child: Text(
-              'Velg riktig vare for å se pris:',
+              'Velg riktig vare:',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),

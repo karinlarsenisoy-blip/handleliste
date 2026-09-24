@@ -31,6 +31,7 @@ class ListItemsView extends StatefulWidget {
 
 class _ListItemsViewState extends State<ListItemsView> with AutomaticKeepAliveClientMixin {
   final TextEditingController _newItemController = TextEditingController();
+  bool _hasSuggestions = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -40,6 +41,20 @@ class _ListItemsViewState extends State<ListItemsView> with AutomaticKeepAliveCl
     if (name.isEmpty) return;
     widget.itemService.addItem(widget.uid, widget.listId, name, imageUrl: imageUrl);
     _newItemController.clear();
+  }
+
+  /// The "+" button is a second way to submit besides the field's own Enter
+  /// key — without this check it would quietly bypass the "pick from the
+  /// list instead of typing a guess" rule ProductNameField already enforces
+  /// on Enter, defeating the whole point of showing suggestions at all.
+  void _addButtonPressed() {
+    if (_hasSuggestions) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Velg riktig vare fra listen over')),
+      );
+      return;
+    }
+    _addItem();
   }
 
   void _openCheapestStore() {
@@ -76,10 +91,11 @@ class _ListItemsViewState extends State<ListItemsView> with AutomaticKeepAliveCl
                   controller: _newItemController,
                   hintText: 'Ny vare...',
                   onSubmitted: (_, {imageUrl, fromSuggestion = false}) => _addItem(imageUrl: imageUrl),
+                  onSuggestionsChanged: (hasSuggestions) => setState(() => _hasSuggestions = hasSuggestions),
                 ),
               ),
               const SizedBox(width: 8),
-              FilledButton(onPressed: _addItem, child: const Icon(Icons.add)),
+              FilledButton(onPressed: _addButtonPressed, child: const Icon(Icons.add)),
             ],
           ),
         ),
