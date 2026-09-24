@@ -72,6 +72,10 @@ class _ProductNameFieldState extends State<ProductNameField> {
   void _selectSuggestion(ProductSuggestion suggestion) {
     widget.controller.text = suggestion.name;
     _setSuggestions([]);
+    // Tapping a suggestion doesn't submit the field the way pressing Enter
+    // does, so the keyboard would otherwise stay open with nothing left to
+    // type — on a tablet, tall enough to cover navigation below the field.
+    FocusScope.of(context).unfocus();
     widget.onSubmitted(suggestion.name, imageUrl: suggestion.imageUrl, fromSuggestion: true);
   }
 

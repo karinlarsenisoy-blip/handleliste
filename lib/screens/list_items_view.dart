@@ -41,6 +41,10 @@ class _ListItemsViewState extends State<ListItemsView> with AutomaticKeepAliveCl
     if (name.isEmpty) return;
     widget.itemService.addItem(widget.uid, widget.listId, name, imageUrl: imageUrl);
     _newItemController.clear();
+    // The "+" button (unlike Enter) doesn't submit the field, so it wouldn't
+    // otherwise dismiss the keyboard — same reasoning as ProductNameField's
+    // own suggestion-tap handler.
+    FocusScope.of(context).unfocus();
   }
 
   /// The "+" button is a second way to submit besides the field's own Enter
